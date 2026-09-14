@@ -5,7 +5,8 @@ import { colorTerreno, colorObjeto, dimensionesObjeto, familiaPatronTerreno } fr
 import { obtenerParchesTerreno, obtenerParchesTerrenoTranslucido, obtenerParcheSolido, copiarParcheEnBuffer, hashCasilla, NUM_VARIANTES_PATRON, generarParcheTerreno, type FamiliaPatronTerreno } from "./patronTerreno";
 import { obtenerPlantilla } from "./entityLoader";
 import { esFaunaDecorativaGregaria, esFaunaDecorativaAcuatica, obtenerMallaFaunaDecorativa } from "./faunaDecorativaPool";
-import { AnimadorFaunaDecorativaSector, type IndividuoFaunaDecorativa } from "./faunaDecorativaMovimiento";
+import { AnimadorFaunaDecorativaSector, type IndividuoFaunaDecorativa, RADIO_FAUNA_DECORATIVA_VISIBLE, RADIO_FAUNA_DECORATIVA_OCULTAR } from "./faunaDecorativaMovimiento";
+import { decidirVisibilidadNombre } from "./visibilidadNombres";
 import type { CategoriaAsset } from "./assetCatalog";
 import { crearRigHumanoide } from "./rigHumanoide";
 import { NIVEL_MAXIMO_NIEVE } from "../mundo/nieve";
@@ -1117,6 +1118,67 @@ function clavePosicion(x: number, y: number): string {
 }
 
 /**
+ * Culling real por distancia de vegetación/rocas (2026-09-14, pedido
+ * streamer: "cargan mas de 30 en pantalla... cuenta los arboles semillas...
+ * lo de que cargue solo lo que se ve en pantalla no esta funcionando" —
+ * CIERTO, confirmado con la geometría real del frustum de la cámara
+ * isométrica: "cargar solo lo que se ve" nunca existió a nivel de
+ * INSTANCIA, solo a nivel de SECTOR completo — un sector materializado
+ * (hasta 320x320 casillas) siempre dibujaba TODA su vegetación/rocas sin
+ * importar si estaban dentro del radio realmente visible en pantalla
+ * (~20-25 casillas, ver RADIO_FAUNA_DECORATIVA_VISIBLE/OCULTAR). Props
+ * ESTÁTICOS (sin movimiento, a diferencia de la fauna decorativa — que ya
+ * tiene su propio mecanismo equivalente en `AnimadorFaunaDecorativaSector`)
+ * — reusa el MISMO radio (misma cámara, mismo criterio de "qué es
+ * pantalla") y el mismo throttling que la fauna.
+ */
+export interface RegistroInstanciaProp {
+  instanciado: THREE.InstancedMesh;
+  indice: number;
+  x: number;
+  y: number;
+  matrizOriginal: THREE.Matrix4;
+  visible: boolean;
+  /**
+   * Recolección/tala permanente (docs/GDD_Bosques.md §7, `ocultarPosicion`)
+   * — DISTINTO de `visible` (que el culling por distancia alterna libre):
+   * una vez a `true`, el controlador de abajo nunca vuelve a tocar esta
+   * entrada, ni para mostrarla ni para ocultarla — sin esto, volver cerca
+   * de un árbol YA talado por otro jugador lo "resucitaría" restaurando su
+   * matriz original.
+   */
+  permanentementeOculto: boolean;
+}
+const MATRIZ_CERO_PROPS = new THREE.Matrix4().makeScale(0, 0, 0);
+const INTERVALO_ACTUALIZACION_VISIBILIDAD_PROPS_MS = 200;
+
+export class ControladorVisibilidadProps {
+  private acumuladoMs = 0;
+  constructor(private readonly registro: RegistroInstanciaProp[]) {}
+
+  actualizar(dtMs: number, jugadorX: number, jugadorY: number): void {
+    if (this.registro.length === 0) return;
+    this.acumuladoMs += dtMs;
+    if (this.acumuladoMs < INTERVALO_ACTUALIZACION_VISIBILIDAD_PROPS_MS) return;
+    this.acumuladoMs = 0;
+    const radioVisible2 = RADIO_FAUNA_DECORATIVA_VISIBLE * RADIO_FAUNA_DECORATIVA_VISIBLE;
+    const radioOcultar2 = RADIO_FAUNA_DECORATIVA_OCULTAR * RADIO_FAUNA_DECORATIVA_OCULTAR;
+    const tocados = new Set<THREE.InstancedMesh>();
+    for (const r of this.registro) {
+      if (r.permanentementeOculto) continue;
+      const dx = r.x - jugadorX;
+      const dy = r.y - jugadorY;
+      const nuevoVisible = decidirVisibilidadNombre(r.visible, dx * dx + dy * dy, radioVisible2, radioOcultar2);
+      if (nuevoVisible === r.visible) continue;
+      r.visible = nuevoVisible;
+      r.instanciado.setMatrixAt(r.indice, nuevoVisible ? r.matrizOriginal : MATRIZ_CERO_PROPS);
+      tocados.add(r.instanciado);
+    }
+    for (const instanciado of tocados) instanciado.instanceMatrix.needsUpdate = true;
+  }
+}
+
+/**
  * Comprobador de transitabilidad para el vagabundeo de fauna decorativa
  * (docs/GDD_Agentes_Moviles.md) — casilla fuera del sector propio (posible
  * cerca de un borde) se deja pasar sin bloquear, mismo criterio "mejor
@@ -1145,7 +1207,7 @@ async function crearPropsSector(
   indice: IndiceMapa,
   sector: SectorBakeado,
   excluidos: Set<string>,
-): Promise<{ raiz: THREE.Group; ocultables: Map<string, () => void>; animadorFauna: AnimadorFaunaDecorativaSector | null }> {
+): Promise<{ raiz: THREE.Group; ocultables: Map<string, () => void>; animadorFauna: AnimadorFaunaDecorativaSector | null; controladorVisibilidadProps: ControladorVisibilidadProps }> {
   const grupos = new Map<string, GrupoEspecie>();
   for (const [clave, chunk] of Object.entries(sector.chunks)) {
     const [cx, cy] = clave.split("_").map(Number);
@@ -1195,6 +1257,12 @@ async function crearPropsSector(
   // (la búsqueda de vecinos de manada cruza variantes/grupos de la MISMA
   // especie, ver faunaDecorativaMovimiento.ts).
   const individuosFaunaDecorativa: IndividuoFaunaDecorativa[] = [];
+  // Registro para el culling por distancia de vegetación/rocas (ver
+  // ControladorVisibilidadProps más arriba) — solo `v`/`r`, los tipos
+  // realmente numerosos (miles por sector); edificios/decoración urbana
+  // (`e`/`m`, pocas decenas) se dejan siempre visibles a propósito, sirven
+  // de referencia de orientación a distancia.
+  const registroVisibilidadProps: RegistroInstanciaProp[] = [];
   const esTransitableFauna = crearComprobadorTransitableFauna(indice, sector);
 
   // Investigación real (2026-09-13, "sigue habiendo lag en el mundo" tras
@@ -1310,6 +1378,13 @@ async function crearPropsSector(
               pausaRestante: Math.random() * 6,
               oculto: false,
               acuatico,
+              // Se recalcula solo con la primera llamada real a `actualizar`
+              // con posición de jugador (ver faunaDecorativaMovimiento.ts) —
+              // arrancar en `true` es lo correcto: recién materializado el
+              // sector, la instancia YA se dibujó visible con su matriz real
+              // (el `forEach` de más abajo), nunca hay que esconderla antes
+              // de la primera comprobación real de distancia.
+              visiblePorDistancia: true,
             };
             individuosFaunaDecorativa.push(individuo);
             ocultables.set(clavePosicion(globalX, globalY), () => {
@@ -1418,9 +1493,20 @@ async function crearPropsSector(
             // (verificado), pero compone correcto si algún día deja de serlo.
             matriz.multiply(meshReal.matrix);
             instanciado.setMatrixAt(indice2, matriz);
+            // Culling por distancia (ver ControladorVisibilidadProps) solo
+            // para vegetación/rocas — las miles de instancias que de verdad
+            // se notaban "demasiadas en pantalla" (pedido streamer
+            // 2026-09-14). `registro` es la MISMA entrada que lee el
+            // `ocultables` de abajo, para que una recolección/tala
+            // PERMANENTE nunca pueda "resucitar" por volver a estar cerca.
+            const registroVis = grupo.tipo === "v" || grupo.tipo === "r"
+              ? { instanciado, indice: indice2, x: globalX + centroX, y: globalY + centroZ, matrizOriginal: matriz.clone(), visible: true, permanentementeOculto: false }
+              : null;
+            if (registroVis) registroVisibilidadProps.push(registroVis);
             ocultables.set(clavePosicion(globalX, globalY), () => {
               instanciado.setMatrixAt(indice2, matrizCero);
               instanciado.instanceMatrix.needsUpdate = true;
+              if (registroVis) registroVis.permanentementeOculto = true;
             });
           });
           instanciado.instanceMatrix.needsUpdate = true;
@@ -1482,9 +1568,16 @@ async function crearPropsSector(
         escala.set(anchoReal * es, dims.alto * es, largoReal * es);
         matriz.compose(posicion, rotacion, escala);
         malla.setMatrixAt(indice2, matriz);
+        // Culling por distancia (ver ControladorVisibilidadProps), mismo
+        // criterio que la rama .glb real de arriba — solo vegetación/rocas.
+        const registroVis = grupo.tipo === "v" || grupo.tipo === "r"
+          ? { instanciado: malla, indice: indice2, x: globalX + centroX, y: globalY + centroZ, matrizOriginal: matriz.clone(), visible: true, permanentementeOculto: false }
+          : null;
+        if (registroVis) registroVisibilidadProps.push(registroVis);
         ocultables.set(clavePosicion(globalX, globalY), () => {
           malla.setMatrixAt(indice2, matrizCero);
           malla.instanceMatrix.needsUpdate = true;
+          if (registroVis) registroVis.permanentementeOculto = true;
         });
       });
       malla.instanceMatrix.needsUpdate = true;
@@ -1501,7 +1594,8 @@ async function crearPropsSector(
   const animadorFauna = individuosFaunaDecorativa.length > 0
     ? new AnimadorFaunaDecorativaSector(individuosFaunaDecorativa, esTransitableFauna)
     : null;
-  return { raiz, ocultables, animadorFauna };
+  const controladorVisibilidadProps = new ControladorVisibilidadProps(registroVisibilidadProps);
+  return { raiz, ocultables, animadorFauna, controladorVisibilidadProps };
 }
 
 const ALTURA_MURALLA: Record<string, number> = { empalizada: 1.7, muralla_piedra: 2.6 };
@@ -1578,8 +1672,22 @@ function crearMurallaSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Gr
 export interface HandleSector {
   grupo: THREE.Group;
   ocultarPosicion: (x: number, y: number) => void;
-  /** Vagabundeo/manada de fauna decorativa (docs/GDD_Agentes_Moviles.md) — llamar una vez por frame desde el bucle de render; no-op si este sector no tiene fauna decorativa. */
-  actualizarFaunaDecorativa: (dtMs: number) => void;
+  /**
+   * Vagabundeo/manada de fauna decorativa (docs/GDD_Agentes_Moviles.md) —
+   * llamar una vez por frame desde el bucle de render; no-op si este sector
+   * no tiene fauna decorativa. `jugadorX/jugadorY` (2026-09-14, opcionales,
+   * ver `faunaDecorativaMovimiento.ts::actualizar`): con ellos, culling
+   * real por distancia — sin ellos, comportamiento idéntico al de siempre.
+   */
+  actualizarFaunaDecorativa: (dtMs: number, jugadorX?: number, jugadorY?: number) => void;
+  /**
+   * Culling real por distancia de vegetación/rocas (2026-09-14, ver
+   * ControladorVisibilidadProps) — llamar una vez por frame con la
+   * posición del jugador, throttlea internamente. A diferencia de
+   * `actualizarFaunaDecorativa`, la posición NO es opcional: sin ella no
+   * hay ningún comportamiento "de antes" que preservar (mecanismo nuevo).
+   */
+  actualizarVisibilidadPropsPorDistancia: (dtMs: number, jugadorX: number, jugadorY: number) => void;
 }
 
 /**
@@ -1606,7 +1714,7 @@ export async function crearSectorVisual(
   const terreno = await crearTerrenoSector(indice, sector, margenVisual, nivelNieveActual);
   grupo.add(terreno.grupo);
   grupo.add(crearMurallaSector(indice, sector));
-  const { raiz, ocultables, animadorFauna } = await crearPropsSector(indice, sector, excluidos);
+  const { raiz, ocultables, animadorFauna, controladorVisibilidadProps } = await crearPropsSector(indice, sector, excluidos);
   grupo.add(raiz);
   if (margenVisual > 0) {
     // margenVisual>0 hoy SOLO pasa en arenas — decoración A MANO del margen
@@ -1626,7 +1734,8 @@ export async function crearSectorVisual(
   return {
     grupo,
     ocultarPosicion: (x, y) => ocultables.get(clavePosicion(x, y))?.(),
-    actualizarFaunaDecorativa: (dtMs) => animadorFauna?.actualizar(dtMs),
+    actualizarFaunaDecorativa: (dtMs, jugadorX, jugadorY) => animadorFauna?.actualizar(dtMs, jugadorX, jugadorY),
+    actualizarVisibilidadPropsPorDistancia: (dtMs, jugadorX, jugadorY) => controladorVisibilidadProps.actualizar(dtMs, jugadorX, jugadorY),
   };
 }
 

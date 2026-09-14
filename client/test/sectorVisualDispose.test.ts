@@ -70,6 +70,7 @@ function handleFalso(): {
     grupo,
     ocultarPosicion: () => {},
     actualizarFaunaDecorativa: () => {},
+    actualizarVisibilidadPropsPorDistancia: () => {},
   };
   return { handle, compartido, propio };
 }

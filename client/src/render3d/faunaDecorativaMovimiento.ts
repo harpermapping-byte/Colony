@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { decidirVisibilidadNombre } from "./visibilidadNombres";
 
 /**
  * Vagabundeo/manada de la fauna DECORATIVA (obj.t==="a", `sectorVisual.ts`),
@@ -41,6 +42,21 @@ const PAUSA_SIN_HUECO = 2; // si los 6 intentos de elegirDestino fallan
 
 const INTERVALO_ACTUALIZACION_MS = 150;
 
+// Culling real por distancia (2026-09-14, pedido streamer: "cargan mas de
+// 30 en pantalla... lo de que cargue solo lo que se ve en pantalla no esta
+// funcionando" — cierto, nunca existió a nivel de instancia). Radio
+// derivado de la geometría REAL del frustum de la cámara isométrica
+// ortográfica del proyecto (`worldScene.ts`, TAMANO_MUNDO_VISIBLE=16):
+// proyectando las 4 esquinas de pantalla al plano y=0, la esquina más
+// lejana visible cae a ~20 casillas en 16:9 y ~23 en 21:9 — 26/34 deja
+// margen real para aspect ratios más anchos y para el hueco entre dos
+// actualizaciones (throttling de `INTERVALO_ACTUALIZACION_MS`, el jugador
+// puede moverse durante esa ventana). Histéresis (RADIO_..._VISIBLE <
+// RADIO_..._OCULTAR) para no parpadear justo en el borde, mismo patrón ya
+// usado por `visibilidadNombres.ts`/`streamingSectores.ts`.
+export const RADIO_FAUNA_DECORATIVA_VISIBLE = 26;
+export const RADIO_FAUNA_DECORATIVA_OCULTAR = 34;
+
 export interface IndividuoFaunaDecorativa {
   especieId: string;
   gregario: boolean;
@@ -63,6 +79,17 @@ export interface IndividuoFaunaDecorativa {
    * correcto para tierra pero exactamente al revés para peces.
    */
   acuatico: boolean;
+  /**
+   * Culling real por distancia al jugador (2026-09-14, pedido streamer:
+   * "cargan mas de 30 en pantalla... lo de que cargue solo lo que se ve en
+   * pantalla no esta funcionando" — CIERTO, confirmado con la matemática
+   * real del frustum de la cámara isométrica: "cargar solo lo que se ve"
+   * nunca existió a nivel de INSTANCIA, solo a nivel de sector completo).
+   * Con histéresis (ver RADIO_FAUNA_DECORATIVA_VISIBLE/OCULTAR más abajo),
+   * DISTINTO de `oculto` (recolección permanente) — este campo puede
+   * alternar libremente según la distancia, `oculto` nunca vuelve atrás.
+   */
+  visiblePorDistancia: boolean;
   /**
    * Recolectado/tala en vivo delante del jugador (docs/GDD_Bosques.md §7,
    * `ocultarPosicion` de `HandleSector`) — hoy NUNCA se dispara para fauna
@@ -139,16 +166,45 @@ export class AnimadorFaunaDecorativaSector {
     }
   }
 
-  /** Llamar una vez por frame (game.ts::bucle) — internamente throttlea el trabajo pesado. */
-  actualizar(dtMs: number): void {
+  /**
+   * Llamar una vez por frame (game.ts::bucle) — internamente throttlea el
+   * trabajo pesado. `jugadorX/jugadorY` OPCIONALES (2026-09-14): sin ellos,
+   * comportamiento IDÉNTICO al de siempre (todos los tests existentes de
+   * este archivo siguen pasando sin tocarlos) — con ellos, culling real por
+   * distancia (ver RADIO_FAUNA_DECORATIVA_VISIBLE/OCULTAR): un individuo
+   * lejos del jugador ni siquiera se simula (ahorra el propio trabajo de
+   * `elegirDestino`/`centroideManada`, no solo el de recomponer matriz).
+   */
+  actualizar(dtMs: number, jugadorX?: number, jugadorY?: number): void {
     this.acumuladoMs += dtMs;
     if (this.acumuladoMs < INTERVALO_ACTUALIZACION_MS) return;
     const dt = this.acumuladoMs / 1000;
     this.acumuladoMs = 0;
+    const conJugador = jugadorX !== undefined && jugadorY !== undefined;
+    const radioVisible2 = RADIO_FAUNA_DECORATIVA_VISIBLE * RADIO_FAUNA_DECORATIVA_VISIBLE;
+    const radioOcultar2 = RADIO_FAUNA_DECORATIVA_OCULTAR * RADIO_FAUNA_DECORATIVA_OCULTAR;
 
     const instanciadosTocados = new Set<THREE.InstancedMesh>();
     for (const ind of this.individuos) {
       if (ind.oculto) continue; // recolectado en vivo — su matriz ya quedó a cero, nunca recomputar por encima
+      if (conJugador) {
+        const dx = ind.x - jugadorX!;
+        const dy = ind.y - jugadorY!;
+        const visibleAntes = ind.visiblePorDistancia;
+        ind.visiblePorDistancia = decidirVisibilidadNombre(visibleAntes, dx * dx + dy * dy, radioVisible2, radioOcultar2);
+        if (!ind.visiblePorDistancia) {
+          if (visibleAntes) {
+            // recién sale de rango: oculta de verdad (matriz a cero) —
+            // el resto de ticks mientras siga lejos ni siquiera entra aquí.
+            this.matriz.makeScale(0, 0, 0);
+            ind.instanciado.setMatrixAt(ind.indice, this.matriz);
+            instanciadosTocados.add(ind.instanciado);
+          }
+          continue; // lejos: ni simular movimiento ni recomponer matriz visible
+        }
+        // visible ahora (seguía visible, o acaba de entrar en rango): sigue
+        // al camino normal de abajo, que ya recompone su matriz real.
+      }
       if (ind.destino) {
         const dx = ind.destino.x - ind.x;
         const dy = ind.destino.y - ind.y;

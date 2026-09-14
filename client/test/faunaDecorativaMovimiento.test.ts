@@ -33,6 +33,7 @@ function individuo(overrides: Partial<IndividuoFaunaDecorativa> & { homeX: numbe
     pausaRestante: 0,
     oculto: false,
     acuatico: false,
+    visiblePorDistancia: true,
     ...overrides,
   };
 }

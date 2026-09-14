@@ -4460,8 +4460,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // Vagabundeo/manada de fauna decorativa (docs/GDD_Agentes_Moviles.md,
     // pedido 2026-09-09) — cada handle throttlea su propio trabajo pesado
     // internamente (AnimadorFaunaDecorativaSector), esta llamada es barata
-    // para sectores sin fauna o ya al día este frame.
-    if (streaming) for (const handle of streaming.handlesMaterializados()) handle.actualizarFaunaDecorativa(dt * 1000);
+    // para sectores sin fauna o ya al día este frame. Posición del jugador
+    // (2026-09-14, "cargan mas de 30 en pantalla") activa el culling real
+    // por distancia dentro del animador — sin jugadorLocal (aún cargando)
+    // se omite, mismo criterio que el resto de este bloque.
+    if (streaming && jugadorLocal) for (const handle of streaming.handlesMaterializados()) handle.actualizarFaunaDecorativa(dt * 1000, jugadorLocal.x, jugadorLocal.z);
+    // Culling real por distancia de vegetación/rocas (2026-09-14, pedido
+    // streamer: "cargan mas de 30 en pantalla... cuenta los arboles
+    // semillas... lo de que cargue solo lo que se ve en pantalla no esta
+    // funcionando" — cierto, ver ControladorVisibilidadProps en
+    // sectorVisual.ts). Mismo bucle/criterio que la fauna decorativa de
+    // arriba, throttlea internamente.
+    if (streaming && jugadorLocal) for (const handle of streaming.handlesMaterializados()) handle.actualizarVisibilidadPropsPorDistancia(dt * 1000, jugadorLocal.x, jugadorLocal.z);
 
     // Demo de personajes/animales: animación idle (respirar, colas, alas)
     for (const animable of animables) animable.actualizar(dt);
