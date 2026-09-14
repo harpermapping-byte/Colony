@@ -126,10 +126,90 @@ export interface MapaCargado extends MundoColision {
   tilesPorSector: number;
 }
 
+/** Resultado INMUTABLE de parsear un mapa bakeado entero (terreno+portales+
+ * metadata) — todo lo que NUNCA muta después de cargarse. Deliberadamente
+ * NO incluye `casillas`/`velocidad` (esos SÍ se mutan por partida, ver
+ * `construccion/construccion.ts::casillasBase` — cada room necesita su
+ * propia copia privada) ni `recolectables` (Map compartido con su propio
+ * ciclo de vida en `recolectablesDeMapa`, ver más abajo). */
+interface DatosBakeParseados {
+  nombre: string;
+  ancho: number;
+  alto: number;
+  casillasBase: Uint8Array;
+  velocidadBase: Float32Array;
+  spawnX: number;
+  spawnY: number;
+  portales: Portal[];
+  parcelasReservadas: ParcelaReservada[];
+  bordes?: Record<"norte" | "sur" | "este" | "oeste", BordeMapa>;
+  tilesPorSector: number;
+}
+
+// Parsear TODOS los sectores de un mapa grande (Vetrheim: 100 archivos,
+// hasta ~170MB) es caro de verdad — confirmado con un perfil real de
+// producción (`--cpu-prof`, 2026-09-14): ~1 SEGUNDO de bloqueo SÍNCRONO
+// COMPLETO del proceso (nadie se mueve, ningún mensaje de red se procesa
+// mientras dura) cada vez que se crea una room para ese mapa. Como Colyseus
+// destruye una room vacía (`autoDispose`) y crea una instancia NUEVA la
+// próxima vez que alguien entra, esto se repetía cada vez que una
+// aldea/mazmorra se vaciaba y se volvía a visitar en la MISMA sesión del
+// servidor — no solo una vez al arrancar. Cacheado por `rutaMapa` (+
+// `rutaCatalogo`, aunque en la práctica siempre es el mismo `baker/catalogo/`
+// para todos los mapas): el bake nunca cambia en caliente — rehornear exige
+// un proceso aparte (bakeador offline + promoción manual de archivos), así
+// que reusar el resultado ya parseado siempre es correcto. Solo se cachea
+// la parte INMUTABLE — `casillas`/`velocidad` se devuelven como una copia
+// FRESCA (`.slice()`) en cada llamada, exactamente igual que antes de este
+// cambio: cada room sigue teniendo su propia rejilla privada, nunca
+// compartida con otra instancia de room.
+const cacheBakeParseado = new Map<string, DatosBakeParseados>();
+
 export function cargarMapaColision(
   rutaMapa: string = process.env.RUTA_MAPA || path.join(RAIZ_REPO, "assets", "mapas", "demo"),
   rutaCatalogo: string = process.env.RUTA_CATALOGO || path.join(RAIZ_REPO, "baker", "catalogo"),
 ): MapaCargado {
+  // recolectables: el MISMO Map vive mientras dure el proceso (ver
+  // mundo/recolectables.ts) — `poblar` es true solo la primera vez que se
+  // carga ESTE rutaMapa, así una room que se recrea (RegionRoom autoDispose)
+  // no resetea lo ya cogido.
+  const { mapa: recolectables, esNuevo: poblarRecolectables } = recolectablesDeMapa(rutaMapa);
+
+  const claveCache = `${rutaMapa} ${rutaCatalogo}`;
+  let base = cacheBakeParseado.get(claveCache);
+  if (!base) {
+    base = parsearBakeCompleto(rutaMapa, rutaCatalogo, poblarRecolectables ? recolectables : null);
+    cacheBakeParseado.set(claveCache, base);
+  }
+
+  return {
+    nombre: base.nombre,
+    ancho: base.ancho,
+    alto: base.alto,
+    // `casillas` SÍ necesita una copia propia por llamada — `construccion.ts`
+    // la muta (endurecer/revertir una parcela). `velocidad` en cambio nunca
+    // se escribe en ningún sitio del servidor (confirmado por grep antes de
+    // compartirla) — es solo lectura, así que compartir la MISMA instancia
+    // entre todas las rooms de un mismo mapa es seguro y evita la copia más
+    // pesada de las dos (Float32Array, 4 bytes/casilla contra 1 de `casillas`).
+    casillas: base.casillasBase.slice(),
+    velocidad: base.velocidadBase,
+    spawnX: base.spawnX,
+    spawnY: base.spawnY,
+    rutaMapa,
+    portales: base.portales,
+    recolectables,
+    parcelasReservadas: base.parcelasReservadas,
+    bordes: base.bordes,
+    tilesPorSector: base.tilesPorSector,
+  };
+}
+
+function parsearBakeCompleto(
+  rutaMapa: string,
+  rutaCatalogo: string,
+  recolectablesAPoblar: Map<number, RecolectableVivo> | null,
+): DatosBakeParseados {
   const indice = leerJSON<{
     nombre: string;
     anchoChunks: number;
@@ -148,11 +228,6 @@ export function cargarMapaColision(
   const terrenos = leerJSON<Record<string, EntradaTerreno>>(path.join(rutaCatalogo, "terrenos.json"));
   const solidosCatalogo = idsConColision(rutaCatalogo);
   const catalogosCapa = catalogosPorCapa(rutaCatalogo);
-  // recolectables: el MISMO Map vive mientras dure el proceso (ver
-  // mundo/recolectables.ts) — `poblar` es true solo la primera vez que se
-  // carga ESTE rutaMapa, así una room que se recrea (RegionRoom autoDispose)
-  // no resetea lo ya cogido.
-  const { mapa: recolectables, esNuevo: poblarRecolectables } = recolectablesDeMapa(rutaMapa);
 
   const T = indice.tamanoChunk;
   const ancho = indice.anchoChunks * T;
@@ -208,11 +283,11 @@ export function cargarMapaColision(
           // esa condición habría marcado como recolectable el 100% del pool,
           // no solo la fracción activa — encontrado en la crítica adversarial
           // del diseño de esta fase antes de escribir una sola línea).
-          if (poblarRecolectables && obj.ac !== 0) {
+          if (recolectablesAPoblar && obj.ac !== 0) {
             const def = catalogosCapa[obj.t]?.[obj.i];
             if (def?.desaparaceAlRecolectar && def.categoriaRecurso) {
               const idx = (baseY + obj.y) * ancho + (baseX + obj.x);
-              recolectables.set(idx, { itemId: def.categoriaRecurso, x: baseX + obj.x, y: baseY + obj.y });
+              recolectablesAPoblar.set(idx, { itemId: def.categoriaRecurso, x: baseX + obj.x, y: baseY + obj.y });
             }
           }
         }
@@ -229,13 +304,11 @@ export function cargarMapaColision(
     nombre: indice.nombre,
     ancho,
     alto,
-    casillas,
-    velocidad,
+    casillasBase: casillas,
+    velocidadBase: velocidad,
     spawnX: spawn.x + 0.5,
     spawnY: spawn.y + 0.5,
-    rutaMapa,
     portales: indice.portales ?? [],
-    recolectables,
     parcelasReservadas: indice.parcelasReservadas ?? [],
     bordes: indice.bordes,
     tilesPorSector: indice.tamanoSectorChunks * indice.tamanoChunk,
