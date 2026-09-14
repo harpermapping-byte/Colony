@@ -156,7 +156,20 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
   // esa bajada ya aplicada, no en vez de ella — la densidad visible real en
   // el próximo bake será menor que en NINGÚN punto anterior de esta sesión,
   // vegetación incluida antes del "más tupido" original.
-  const TECHO_POR_CAPA = { vegetacion: 0.1, fauna: 0.004, rocas: 0.02 };
+  // fauna bajado OTRO tramo, a la mitad (2026-09-14, pedido streamer, el
+  // mismo día que el culling por instancia: "hay que añadir la reduccion de
+  // cantidad de animales en mapa, que se generan DEMASIADOS") — solo fauna
+  // esta vez, sin tocar vegetacion/rocas (no se pidió). Medido con
+  // ejemplo-rapido.json antes/después: 0.004 daba 108 individuos activos
+  // (de 375 candidatos totales) en el bake de prueba; con 0.002 esperado
+  // ~54 (escala lineal, ver `techoPara()` — confirmado en el commit de esta
+  // entrada). Esto reduce la cantidad REAL de fauna en el bake (decorativa
+  // Y viva simulada — `server/src/mundo/faunaSalvajeSector.ts::resolverSector`
+  // parte de estos mismos puntos bakeados para decidir cuántos individuos
+  // vivos existen por sector), DISTINTO del culling por distancia de la
+  // entrada anterior (ese solo deja de DIBUJAR lo lejano, sin tocar cuántos
+  // hay en total).
+  const TECHO_POR_CAPA = { vegetacion: 0.1, fauna: 0.002, rocas: 0.02 };
   function techoPara(catalogo) {
     return catalogo === catalogoAnimales ? TECHO_POR_CAPA.fauna : catalogo === catalogoRocas ? TECHO_POR_CAPA.rocas : TECHO_POR_CAPA.vegetacion;
   }
