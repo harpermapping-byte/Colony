@@ -39,11 +39,12 @@ for (const { nombre, mitad } of CASOS) {
   await page.goto(`http://localhost:${PUERTO_WEB}/test/patronSueloAislado.html?sx=9&sy=1&x=2890&y=350&mitad=${mitad}`, { waitUntil: "load", timeout: 30000 });
   await page.waitForFunction(() => (window).__listo === true, { timeout: 30000 }).catch(() => { errores.push("timeout esperando __listo"); });
   const tiempoMs = await page.evaluate(() => (window).__tiempoTerrenoMs).catch(() => null);
+  const huecoMs = await page.evaluate(() => (window).__huecoMaximoFrameMs).catch(() => null);
   if (tiempoMs != null) tiempos.push(tiempoMs);
   const ruta = join(capturas, `patron_suelo_${nombre}.png`);
   await page.screenshot({ path: ruta });
   if (errores.length) fallos++;
-  console.log(`${errores.length === 0 ? "OK" : "FALLO"} ${nombre} (crearSectorVisual: ${tiempoMs?.toFixed?.(1) ?? "?"}ms) -> ${ruta}${errores.length ? " ERRORES: " + errores.join(" | ") : ""}`);
+  console.log(`${errores.length === 0 ? "OK" : "FALLO"} ${nombre} (crearSectorVisual: ${tiempoMs?.toFixed?.(1) ?? "?"}ms total, hueco máximo entre frames: ${huecoMs?.toFixed?.(1) ?? "?"}ms) -> ${ruta}${errores.length ? " ERRORES: " + errores.join(" | ") : ""}`);
   await page.close();
 }
 

@@ -14,6 +14,32 @@ import * as THREE from "three";
 import { crearSectorVisual, crearTerrenoSector } from "../src/render3d/sectorVisual";
 import type { IndiceMapa, SectorBakeado } from "../src/mapa/formatoMapa";
 
+// Heartbeat de rAF corriendo desde el arranque de la página, para medir el
+// bloqueo REAL del hilo principal durante `crearTerrenoSector` (2026-09-13,
+// investigación de "sigue habiendo lag" tras trocear la función en chunks
+// con cesión — ver CHUNKS_POR_CESION_TERRENO en sectorVisual.ts). El hueco
+// MÁXIMO entre dos frames consecutivos durante la ventana de medición es lo
+// que de verdad importa para el "se queda quieto" — el tiempo TOTAL no baja
+// con el chunking (es el mismo trabajo), pero el bloqueo máximo sí debe.
+const marcasFrame: number[] = [];
+function latidoFrame() {
+  marcasFrame.push(performance.now());
+  requestAnimationFrame(latidoFrame);
+}
+requestAnimationFrame(latidoFrame);
+function huecoMaximoEntre(desde: number, hasta: number): number {
+  // Incluye los huecos de BORDE (desde->primera marca, última marca->hasta):
+  // si el bloqueo dura más que la ventana entera puede haber 0 o 1 marcas
+  // DENTRO de [desde,hasta] — sin esto el hueco real quedaría subestimado a
+  // 0, justo el caso más grave (bug real encontrado investigando el mismo
+  // día en crearPropsSector, ver propsSectorAislado.ts).
+  const enVentana = marcasFrame.filter((m) => m >= desde && m <= hasta);
+  const puntos = [desde, ...enVentana, hasta];
+  let maximo = 0;
+  for (let i = 1; i < puntos.length; i++) maximo = Math.max(maximo, puntos[i] - puntos[i - 1]);
+  return maximo;
+}
+
 const params = new URLSearchParams(location.search);
 const sx = Number(params.get("sx") ?? 9);
 const sy = Number(params.get("sy") ?? 1);
@@ -50,10 +76,16 @@ camara.updateProjectionMatrix();
 // este cambio, sin tocar). Medir el `crearSectorVisual` completo mezclaría
 // ambos costes y escondería si el patrón de suelo en sí es barato o caro.
 const t0 = performance.now();
-const terreno = crearTerrenoSector(indice, sector);
+const terreno = await crearTerrenoSector(indice, sector);
 const t1 = performance.now();
 (window as any).__tiempoTerrenoMs = t1 - t0;
-console.log(`crearTerrenoSector SOLO (sector ${sx}_${sy}, ${indice.tamanoSectorChunks * indice.tamanoChunk}x${indice.tamanoSectorChunks * indice.tamanoChunk} casillas reales): ${(t1 - t0).toFixed(1)}ms`);
+// Un pequeño margen tras t1 para capturar el frame que ya estaba "en
+// vuelo" cuando terminó la última cesión — sin esto el último tramo
+// (después de la última `await cederAlNavegador()`) podría no tener aún
+// su marca de rAF registrada en `marcasFrame`.
+await new Promise((r) => requestAnimationFrame(r));
+(window as any).__huecoMaximoFrameMs = huecoMaximoEntre(t0, t1);
+console.log(`crearTerrenoSector SOLO (sector ${sx}_${sy}, ${indice.tamanoSectorChunks * indice.tamanoChunk}x${indice.tamanoSectorChunks * indice.tamanoChunk} casillas reales): ${(t1 - t0).toFixed(1)}ms total, hueco máximo entre frames: ${(window as any).__huecoMaximoFrameMs.toFixed(1)}ms`);
 
 const handle = await crearSectorVisual(indice, sector);
 scene.add(handle.grupo);

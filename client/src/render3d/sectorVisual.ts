@@ -158,6 +158,44 @@ const ACLARADO_SUPERFICIE = 0.12;
 const ELEV_AGUA_MIN = 0;
 const ELEV_AGUA_MAX = 4;
 
+// Cuántos chunks del sector se pintan entre cada cesión al navegador dentro
+// de `crearTerrenoSector` (2026-09-13, mismo día que la subida a PX=10 de
+// arriba) — bug real encontrado con el mismo arnés que fijó esa constante
+// (`patronSueloAisladoCaptura.mjs`), no solo sospechado: a PX=10 el bucle de
+// pintado entero (hasta 100 chunks de 32x32 en el sector más pesado del
+// mapa principal) tarda 270-830ms SEGUIDOS de un tirón — exactamente el
+// mismo bloqueo síncrono del hilo principal ya diagnosticado y resuelto el
+// 2026-09-09 ("se queda quieto y avanza de golpe", entonces 180ms con
+// fillRect por casilla) — reintroducido por subir la resolución de textura
+// sin volver a trocear el bucle. Trocear en grupos de chunks con un
+// `await` entre medias no reduce el coste TOTAL (sigue siendo la misma
+// cantidad de trabajo), pero convierte un único bloqueo de casi un segundo
+// en varias decenas de cortes de pocos ms cada uno — el navegador puede
+// pintar el frame anterior y procesar input entre medias, eliminando el
+// "congelado" perceptible sin renunciar a la calidad de textura ya
+// aprobada por el streamer. Corrección honesta sobre la primera medición
+// de este mismo arreglo: el `huecoMaximoEntre()` del arnés tenía un bug
+// (subestimaba a 0 un bloqueo que dejase 0-1 marcas de frame DENTRO de la
+// ventana medida, justo el caso más grave) — con eso corregido, y
+// confirmado además que bajar a 1 chunk/corte NO reduce el hueco medido
+// pese a triplicar el tiempo total, el suelo real de ~75-100ms que queda
+// en ESTE sandbox es la propia latencia de `requestAnimationFrame` bajo
+// contención sin GPU real (ver `docs/GDD_Rendimiento.md` §7: mismo
+// entorno, mismo aviso), no el tamaño del corte — en hardware real con
+// vsync de verdad cada corte cede en ~1 frame (~16.7ms a 60hz), muy por
+// debajo de los 270-830ms de bloqueo continuo que había antes de trocear
+// nada. 4 chunks/corte se queda como valor razonable: trocea el bloqueo en
+// ~25 cesiones en vez de 1 sin multiplicar el tiempo total como sí hace
+// ceder en cada chunk.
+const CHUNKS_POR_CESION_TERRENO = 4;
+
+function cederAlNavegador(): Promise<void> {
+  return new Promise((resolver) => {
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => resolver());
+    else setTimeout(resolver, 0);
+  });
+}
+
 /**
  * "Clamp to edge" de un canvas: lo centra en uno nuevo `margen` píxeles más
  * grande por cada lado, replicando la fila/columna/esquina de borde real
@@ -690,12 +728,12 @@ const ALTURA_MAX_NIEVE = proporcionesRig.altoPierna;
 // red de .glb, un coste completamente distinto y mucho mayor) en
 // `client/test/patronSueloAislado.ts` — el resto del código sigue
 // llamándola tal cual, vía `crearSectorVisual`.
-export function crearTerrenoSector(
+export async function crearTerrenoSector(
   indice: IndiceMapa,
   sector: SectorBakeado,
   margenVisual = 0,
   nivelNieveActual = 0,
-): { grupo: THREE.Group; ancho: number; alto: number } {
+): Promise<{ grupo: THREE.Group; ancho: number; alto: number }> {
   const t = indice.tamanoChunk;
   const tilesSector = indice.tamanoSectorChunks * t;
   const origenTileX = sector.sectorX * tilesSector;
@@ -816,7 +854,13 @@ export function crearTerrenoSector(
   // para el faldón del borde del mapa bajo el agua).
   const esAgua = new Uint8Array(ancho * alto);
   const rgbOrilla = new Uint8Array(ancho * alto * 3);
+  let indiceChunk = 0;
   for (const [clave, chunk] of Object.entries(sector.chunks)) {
+    // Cesión periódica (ver CHUNKS_POR_CESION_TERRENO) — el resto del
+    // cuerpo del bucle es IDÉNTICO al de antes, byte a byte: solo se corta
+    // el trabajo en trozos más pequeños, nunca se cambia qué se pinta.
+    if (indiceChunk > 0 && indiceChunk % CHUNKS_POR_CESION_TERRENO === 0) await cederAlNavegador();
+    indiceChunk++;
     const [cx, cy] = clave.split("_").map(Number);
     const baseX = cx * t - origenTileX;
     const baseY = cy * t - origenTileY;
@@ -1153,8 +1197,58 @@ async function crearPropsSector(
   const individuosFaunaDecorativa: IndividuoFaunaDecorativa[] = [];
   const esTransitableFauna = crearComprobadorTransitableFauna(indice, sector);
 
-  await Promise.all(
-    [...grupos.values()].map(async (grupo) => {
+  // Investigación real (2026-09-13, "sigue habiendo lag en el mundo" tras
+  // trocear `crearTerrenoSector`): un `Promise.all` sobre TODOS los grupos a
+  // la vez (hasta 700+ especie:variante distintas en el sector más denso del
+  // mapa principal) también bloquea el hilo — no por la ESPERA de red en sí
+  // (eso sí cede de verdad), sino porque cuando muchas peticiones de `.glb`
+  // PEQUEÑOS del mismo origen resuelven casi a la vez (típico al entrar en
+  // zona nueva, todas sin caché todavía), sus `.then()`/callbacks de
+  // construcción de InstancedMesh se disparan en el mismo turno de
+  // microtareas, sin ceder de verdad al navegador entre medias — justo lo
+  // que pasa constantemente explorando el mundo abierto (100 sectores,
+  // cientos de especies) y mucho menos dentro de una aldea (pocos tipos de
+  // edificio, se agotan rápido) — coincide con "en aldea va mejor" reportado
+  // jugando. Medido con `client/test/propsSectorAisladoCaptura.mjs` (mismo
+  // criterio "Aislado" del proyecto, con un `huecoMaximoEntre()` que SÍ
+  // cuenta los huecos de BORDE de la ventana — la primera versión de este
+  // mismo arnés, usada para descartar un primer intento con lotes de tamaño
+  // FIJO sin presupuesto de tiempo, subestimaba a 0 cualquier bloqueo con
+  // 0-1 marcas de frame dentro de la ventana, justo el caso más grave — bug
+  // de medición real, corregido antes de fiarse del número). Con el
+  // troceo-por-tiempo de abajo: sector nunca visto ~1400ms totales / ~130ms
+  // de hueco máximo entre frames; mismo sector revisitado con TODO cacheado
+  // ~490ms / ~90ms de hueco. El suelo de ~90-130ms que queda en ESTE
+  // sandbox es la propia latencia de `requestAnimationFrame` bajo
+  // contención sin GPU real (confirmado con el mismo experimento en
+  // `crearTerrenoSector`: ceder más a menudo NO baja ese suelo, solo
+  // multiplica el tiempo total — ver CHUNKS_POR_CESION_TERRENO), no el
+  // tamaño de lote — en hardware real con vsync de verdad cada cesión
+  // debería costar ~1 frame (~16.7ms a 60hz), muy por debajo del bloqueo
+  // sin trocear (un único tirón proporcional al número de grupos, cientos
+  // de ms en el sector más denso).
+  //
+  // Troceo por TIEMPO, no por cuenta fija de grupos: un intento con lotes
+  // de tamaño fijo puro (24, luego 64 grupos, cediendo SIEMPRE entre lotes)
+  // sí evitaba el bloqueo largo, pero forzaba una cesión real de frame
+  // incluso cuando el lote entero ya resolvió casi instantáneo (todo
+  // cacheado) — un coste artificial que se paga MUCHAS veces por sector
+  // (hasta ~11 lotes de 64) y que es habitual, no una rareza: moverse
+  // dentro de un mismo bioma reutiliza casi siempre las mismas especies ya
+  // cacheadas de sectores vecinos. Mide cuánto ha costado de verdad el
+  // último lote (`Promise.all` de tamaño fijo, mantiene el solape de red
+  // entre especies distintas dentro del lote) y solo cede si ha pasado más
+  // de PRESUPUESTO_MS_PROPS desde la última cesión real — en caliente,
+  // varios lotes seguidos resuelven por debajo del umbral y apenas se cede
+  // (menos coste artificial que forzarlo siempre); en frío, el primer lote
+  // ya lo cruza y cede con normalidad.
+  const TAMANO_LOTE_PROPS = 64;
+  const PRESUPUESTO_MS_PROPS = 12;
+  const listaGrupos = [...grupos.values()];
+  let marcaUltimaCesionProps = performance.now();
+  for (let inicio = 0; inicio < listaGrupos.length; inicio += TAMANO_LOTE_PROPS) {
+    await Promise.all(
+    listaGrupos.slice(inicio, inicio + TAMANO_LOTE_PROPS).map(async (grupo) => {
       // Fauna DECORATIVA (obj.t==="a"): nunca tiene `.glb` en assets/animales/
       // (fauna estática de fondo, distinta de la fauna VIVA simulada) — su
       // aspecto sale de un pool pre-generado de mallas fusionadas (mismo
@@ -1396,7 +1490,13 @@ async function crearPropsSector(
       malla.instanceMatrix.needsUpdate = true;
       raiz.add(malla);
     }),
-  );
+    );
+    const ahoraProps = performance.now();
+    if (ahoraProps - marcaUltimaCesionProps > PRESUPUESTO_MS_PROPS) {
+      await cederAlNavegador();
+      marcaUltimaCesionProps = performance.now();
+    }
+  }
 
   const animadorFauna = individuosFaunaDecorativa.length > 0
     ? new AnimadorFaunaDecorativaSector(individuosFaunaDecorativa, esTransitableFauna)
@@ -1503,7 +1603,7 @@ export async function crearSectorVisual(
 ): Promise<HandleSector> {
   const grupo = new THREE.Group();
   grupo.name = `sector_${sector.sectorX}_${sector.sectorY}`;
-  const terreno = crearTerrenoSector(indice, sector, margenVisual, nivelNieveActual);
+  const terreno = await crearTerrenoSector(indice, sector, margenVisual, nivelNieveActual);
   grupo.add(terreno.grupo);
   grupo.add(crearMurallaSector(indice, sector));
   const { raiz, ocultables, animadorFauna } = await crearPropsSector(indice, sector, excluidos);
