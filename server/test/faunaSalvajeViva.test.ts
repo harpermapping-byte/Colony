@@ -373,6 +373,39 @@ test("matarIndividuo: tras matar, desactivarSector no vuelve a guardar ni resuci
   assert.strictEqual(salida.size, 0);
 });
 
+// Bug real encontrado 2026-09-14 investigando un perfil de carga sintético
+// con miles de fauna acumulada en un sector muy visitado (docs/GDD_Caza.md,
+// sección de fauna): dos depredadores/cazadores pueden reclamar la MISMA
+// presa en el mismo tick (`presaMasCercana` no comprueba si otro ya la está
+// persiguiendo) y `HubRoom.ts` dispara `onFaunaMuerta(presaId)` para cada
+// entrada SIN esperar entre iteraciones — sin serializar por faunaId, las
+// dos llamadas a `matarIndividuo(mismoId)` leían `vivos` ANTES de que
+// ninguna llegara a su `splice`, y las dos intentaban crear el mismo
+// `cadaver:<id>` → `UNIQUE constraint failed: cadaveres.id` real en
+// producción (reproducido con `Promise.all` contra el código sin
+// `colaPorFauna`: revienta con exactamente ese mensaje; con la cola, la
+// segunda llamada espera a la primera y encuentra el individuo ya
+// eliminado, devolviendo `null` sin más).
+test("matarIndividuo: dos llamadas CONCURRENTES para el MISMO id nunca duplican el cadáver (colaPorFauna, mismo criterio que colaPorArbol)", async () => {
+  const idsCreados = new Set<string>();
+  const { gestor, salida } = crearGestor({
+    crearCadaver: async (c) => {
+      if (idsCreados.has(c.id)) throw new Error(`UNIQUE constraint failed: cadaveres.id (${c.id})`);
+      idsCreados.add(c.id);
+    },
+  });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const id = [...salida.keys()][0];
+
+  const [r1, r2] = await Promise.all([gestor.matarIndividuo(id), gestor.matarIndividuo(id)]);
+
+  const exitosos = [r1, r2].filter((r) => r !== null);
+  assert.strictEqual(exitosos.length, 1, "solo UNA de las dos llamadas concurrentes crea el cadáver — la otra ve el individuo ya eliminado y devuelve null");
+  assert.strictEqual(idsCreados.size, 1, "un único cadáver real, nunca el duplicado que reventaba antes");
+  assert.strictEqual(salida.size, 0);
+  assert.strictEqual(gestor.cantidadViva(), 0);
+});
+
 // docs/GDD_Ganaderia.md + docs/GDD_Monturas.md (pedido 2026-08-30): domesticar
 // es DISTINTO de matarIndividuo — sin cadáver (para que un ciervo tameado no
 // deje un cuerpo looteable ni cuente como caza), aunque reusa el mismo

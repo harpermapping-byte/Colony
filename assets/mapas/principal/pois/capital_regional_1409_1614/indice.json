@@ -1,0 +1,2446 @@
+{
+  "version": 1,
+  "tamanoSectorChunks": 10,
+  "leyendaTerreno": [
+    "adoquin",
+    "agua",
+    "camino",
+    "cesped",
+    "extramuros",
+    "muralla_piedra",
+    "puente",
+    "solar_edificio",
+    "tierra",
+    "tierra_labrada"
+  ],
+  "nombre": "Meadero de la Reina",
+  "semilla": "vetrheim3-9:poi:capital_regional_1409_1614",
+  "tier": "capital",
+  "variante": "rio",
+  "anchoChunks": 23,
+  "altoChunks": 23,
+  "tamanoChunk": 8,
+  "ciudad": {
+    "x": 125,
+    "y": 141
+  },
+  "portales": [
+    {
+      "tipo": "exterior",
+      "x": 128,
+      "y": 144
+    },
+    {
+      "tipo": "exterior",
+      "x": 45,
+      "y": 148
+    },
+    {
+      "tipo": "exterior",
+      "x": 104,
+      "y": 53
+    },
+    {
+      "tipo": "interior",
+      "x": 82,
+      "y": 104,
+      "edificio": "ayuntamiento_vetrheim3-9__poi__capital_regional_1409_1614__ayuntamiento__1",
+      "tipoEdificioId": "ayuntamiento"
+    },
+    {
+      "tipo": "interior",
+      "x": 75,
+      "y": 119,
+      "edificio": "casa_gremio_vetrheim3-9__poi__capital_regional_1409_1614__casa_gremio__5",
+      "tipoEdificioId": "casa_gremio"
+    },
+    {
+      "tipo": "interior",
+      "x": 97,
+      "y": 118,
+      "edificio": "posada_vetrheim3-9__poi__capital_regional_1409_1614__posada__2",
+      "tipoEdificioId": "posada"
+    },
+    {
+      "tipo": "interior",
+      "x": 75,
+      "y": 119,
+      "edificio": "templo_vetrheim3-9__poi__capital_regional_1409_1614__templo__0",
+      "tipoEdificioId": "templo"
+    },
+    {
+      "tipo": "interior",
+      "x": 98,
+      "y": 123,
+      "edificio": "cuartel_guardia_vetrheim3-9__poi__capital_regional_1409_1614__cuartel_guardia__3",
+      "tipoEdificioId": "cuartel_guardia"
+    },
+    {
+      "tipo": "interior",
+      "x": 95,
+      "y": 83,
+      "edificio": "casa_de_cambio_vetrheim3-9__poi__capital_regional_1409_1614__casa_de_cambio__4",
+      "tipoEdificioId": "casa_de_cambio"
+    },
+    {
+      "tipo": "interior",
+      "x": 51,
+      "y": 126,
+      "edificio": "teatro_vetrheim3-9__poi__capital_regional_1409_1614__teatro__21",
+      "tipoEdificioId": "teatro"
+    },
+    {
+      "tipo": "interior",
+      "x": 110,
+      "y": 101,
+      "edificio": "joyeria_vetrheim3-9__poi__capital_regional_1409_1614__joyeria__26",
+      "tipoEdificioId": "joyeria"
+    },
+    {
+      "tipo": "interior",
+      "x": 79,
+      "y": 73,
+      "edificio": "casa_noble_vetrheim3-9__poi__capital_regional_1409_1614__casa_noble__22",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 52,
+      "y": 90,
+      "edificio": "joyeria_vetrheim3-9__poi__capital_regional_1409_1614__joyeria__28",
+      "tipoEdificioId": "joyeria"
+    },
+    {
+      "tipo": "interior",
+      "x": 123,
+      "y": 117,
+      "edificio": "casa_noble_vetrheim3-9__poi__capital_regional_1409_1614__casa_noble__18",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 66,
+      "y": 80,
+      "edificio": "taberna_vetrheim3-9__poi__capital_regional_1409_1614__taberna__12",
+      "tipoEdificioId": "taberna"
+    },
+    {
+      "tipo": "interior",
+      "x": 96,
+      "y": 146,
+      "edificio": "casa_noble_vetrheim3-9__poi__capital_regional_1409_1614__casa_noble__20",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 54,
+      "y": 140,
+      "edificio": "biblioteca_publica_vetrheim3-9__poi__capital_regional_1409_1614__biblioteca_publica__25",
+      "tipoEdificioId": "biblioteca_publica"
+    },
+    {
+      "tipo": "interior",
+      "x": 110,
+      "y": 77,
+      "edificio": "banos_publicos_vetrheim3-9__poi__capital_regional_1409_1614__banos_publicos__24",
+      "tipoEdificioId": "banos_publicos"
+    },
+    {
+      "tipo": "interior",
+      "x": 98,
+      "y": 144,
+      "edificio": "taberna_vetrheim3-9__poi__capital_regional_1409_1614__taberna__7",
+      "tipoEdificioId": "taberna"
+    },
+    {
+      "tipo": "interior",
+      "x": 122,
+      "y": 116,
+      "edificio": "casa_modesta_vetrheim3-9__poi__capital_regional_1409_1614__casa_modesta__27",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 66,
+      "y": 78,
+      "edificio": "tienda_vetrheim3-9__poi__capital_regional_1409_1614__tienda__23",
+      "tipoEdificioId": "tienda"
+    },
+    {
+      "tipo": "interior",
+      "x": 53,
+      "y": 91,
+      "edificio": "casa_modesta_vetrheim3-9__poi__capital_regional_1409_1614__casa_modesta__29",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 120,
+      "y": 135,
+      "edificio": "panaderia_vetrheim3-9__poi__capital_regional_1409_1614__panaderia__30",
+      "tipoEdificioId": "panaderia"
+    },
+    {
+      "tipo": "interior",
+      "x": 56,
+      "y": 131,
+      "edificio": "herreria_vetrheim3-9__poi__capital_regional_1409_1614__herreria__9",
+      "tipoEdificioId": "herreria"
+    },
+    {
+      "tipo": "interior",
+      "x": 71,
+      "y": 142,
+      "edificio": "carniceria_vetrheim3-9__poi__capital_regional_1409_1614__carniceria__17",
+      "tipoEdificioId": "carniceria"
+    },
+    {
+      "tipo": "interior",
+      "x": 112,
+      "y": 136,
+      "edificio": "botica_vetrheim3-9__poi__capital_regional_1409_1614__botica__16",
+      "tipoEdificioId": "botica"
+    },
+    {
+      "tipo": "interior",
+      "x": 120,
+      "y": 87,
+      "edificio": "casa_modesta_vetrheim3-9__poi__capital_regional_1409_1614__casa_modesta__6",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 82,
+      "y": 149,
+      "edificio": "casa_modesta_vetrheim3-9__poi__capital_regional_1409_1614__casa_modesta__11",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 51,
+      "y": 143,
+      "edificio": "panaderia_vetrheim3-9__poi__capital_regional_1409_1614__panaderia__19",
+      "tipoEdificioId": "panaderia"
+    },
+    {
+      "tipo": "interior",
+      "x": 101,
+      "y": 63,
+      "edificio": "astillero_vetrheim3-9__poi__capital_regional_1409_1614__astillero__14",
+      "tipoEdificioId": "astillero"
+    }
+  ],
+  "muralla": {
+    "poligono": [
+      [
+        142.9,
+        109
+      ],
+      [
+        139.4,
+        122.2
+      ],
+      [
+        132.9,
+        133.6
+      ],
+      [
+        127.5,
+        145.7
+      ],
+      [
+        118.1,
+        155.5
+      ],
+      [
+        105.7,
+        160.9
+      ],
+      [
+        92.8,
+        164.9
+      ],
+      [
+        79,
+        166.3
+      ],
+      [
+        66,
+        161.6
+      ],
+      [
+        54.8,
+        154.2
+      ],
+      [
+        44.3,
+        145.9
+      ],
+      [
+        35.6,
+        135.4
+      ],
+      [
+        31.3,
+        122.5
+      ],
+      [
+        29.7,
+        109
+      ],
+      [
+        31,
+        95.5
+      ],
+      [
+        36.9,
+        83.2
+      ],
+      [
+        45.3,
+        73
+      ],
+      [
+        56.4,
+        66.2
+      ],
+      [
+        67.2,
+        59.4
+      ],
+      [
+        79.6,
+        55.9
+      ],
+      [
+        92.6,
+        54.5
+      ],
+      [
+        106.4,
+        55.3
+      ],
+      [
+        119.1,
+        61
+      ],
+      [
+        129.5,
+        70.4
+      ],
+      [
+        137.6,
+        81.9
+      ],
+      [
+        141.8,
+        95.2
+      ]
+    ],
+    "modulos": [
+      {
+        "tipo": "recto",
+        "x": 142.5,
+        "y": 110.3,
+        "rot": 105,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 141.8,
+        "y": 112.9,
+        "rot": 105,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 141.1,
+        "y": 115.6,
+        "rot": 105,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 140.4,
+        "y": 118.2,
+        "rot": 105,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 139.7,
+        "y": 120.8,
+        "rot": 105,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 138.6,
+        "y": 123.6,
+        "rot": 120,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 136.9,
+        "y": 126.5,
+        "rot": 120,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 135.3,
+        "y": 129.3,
+        "rot": 120,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 133.7,
+        "y": 132.2,
+        "rot": 120,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 132.2,
+        "y": 135.1,
+        "rot": 114,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 130.9,
+        "y": 138.2,
+        "rot": 114,
+        "material": "piedra"
+      },
+      {
+        "tipo": "puerta",
+        "x": 129.5,
+        "y": 141.2,
+        "rot": 114,
+        "material": "piedra"
+      },
+      {
+        "tipo": "puerta",
+        "x": 128.1,
+        "y": 144.2,
+        "rot": 114,
+        "material": "piedra"
+      },
+      {
+        "tipo": "puerta",
+        "x": 126.5,
+        "y": 146.7,
+        "rot": 134,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 124.6,
+        "y": 148.7,
+        "rot": 134,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 122.8,
+        "y": 150.6,
+        "rot": 134,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 120.9,
+        "y": 152.5,
+        "rot": 134,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 119,
+        "y": 154.5,
+        "rot": 134,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 116.8,
+        "y": 156,
+        "rot": 156,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 114.3,
+        "y": 157.1,
+        "rot": 156,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 111.9,
+        "y": 158.2,
+        "rot": 156,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 109.4,
+        "y": 159.3,
+        "rot": 156,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 106.9,
+        "y": 160.3,
+        "rot": 156,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 104.4,
+        "y": 161.3,
+        "rot": 163,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 101.8,
+        "y": 162.1,
+        "rot": 163,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 99.2,
+        "y": 162.9,
+        "rot": 163,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 96.7,
+        "y": 163.7,
+        "rot": 163,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 94.1,
+        "y": 164.5,
+        "rot": 163,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 91.4,
+        "y": 165,
+        "rot": 174,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 88.7,
+        "y": 165.3,
+        "rot": 174,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 85.9,
+        "y": 165.6,
+        "rot": 174,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 83.2,
+        "y": 165.9,
+        "rot": 174,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 80.4,
+        "y": 166.1,
+        "rot": 174,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 77.7,
+        "y": 165.8,
+        "rot": -160,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 75.1,
+        "y": 164.9,
+        "rot": -160,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 72.5,
+        "y": 163.9,
+        "rot": -160,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 69.9,
+        "y": 163,
+        "rot": -160,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 67.3,
+        "y": 162.1,
+        "rot": -160,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 64.6,
+        "y": 160.7,
+        "rot": -147,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 61.8,
+        "y": 158.9,
+        "rot": -147,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 59,
+        "y": 157,
+        "rot": -147,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 56.2,
+        "y": 155.2,
+        "rot": -147,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 53.5,
+        "y": 153.2,
+        "rot": -142,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 50.8,
+        "y": 151.1,
+        "rot": -142,
+        "material": "piedra"
+      },
+      {
+        "tipo": "puerta",
+        "x": 48.2,
+        "y": 149.1,
+        "rot": -142,
+        "material": "piedra"
+      },
+      {
+        "tipo": "puerta",
+        "x": 45.6,
+        "y": 147,
+        "rot": -142,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 43.4,
+        "y": 144.9,
+        "rot": -129,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 41.7,
+        "y": 142.8,
+        "rot": -129,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 40,
+        "y": 140.7,
+        "rot": -129,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 38.2,
+        "y": 138.6,
+        "rot": -129,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 36.5,
+        "y": 136.5,
+        "rot": -129,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 35.2,
+        "y": 134.1,
+        "rot": -109,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 34.3,
+        "y": 131.5,
+        "rot": -109,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 33.5,
+        "y": 129,
+        "rot": -109,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 32.6,
+        "y": 126.4,
+        "rot": -109,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 31.7,
+        "y": 123.8,
+        "rot": -109,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 31.1,
+        "y": 121.1,
+        "rot": -97,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 30.8,
+        "y": 118.4,
+        "rot": -97,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 30.5,
+        "y": 115.7,
+        "rot": -97,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 30.2,
+        "y": 113,
+        "rot": -97,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 29.9,
+        "y": 110.3,
+        "rot": -97,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 29.8,
+        "y": 107.6,
+        "rot": -84,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 30.1,
+        "y": 104.9,
+        "rot": -84,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 30.4,
+        "y": 102.2,
+        "rot": -84,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 30.6,
+        "y": 99.5,
+        "rot": -84,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 30.9,
+        "y": 96.8,
+        "rot": -84,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 31.6,
+        "y": 94.2,
+        "rot": -64,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 32.8,
+        "y": 91.8,
+        "rot": -64,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 34,
+        "y": 89.3,
+        "rot": -64,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 35.1,
+        "y": 86.9,
+        "rot": -64,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 36.3,
+        "y": 84.4,
+        "rot": -64,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 37.9,
+        "y": 81.9,
+        "rot": -50,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 40.1,
+        "y": 79.4,
+        "rot": -50,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 42.2,
+        "y": 76.8,
+        "rot": -50,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 44.3,
+        "y": 74.3,
+        "rot": -50,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 46.7,
+        "y": 72.1,
+        "rot": -32,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 49.5,
+        "y": 70.4,
+        "rot": -32,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 52.3,
+        "y": 68.7,
+        "rot": -32,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 55.1,
+        "y": 67,
+        "rot": -32,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 57.8,
+        "y": 65.3,
+        "rot": -32,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 60.5,
+        "y": 63.6,
+        "rot": -32,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 63.2,
+        "y": 62,
+        "rot": -32,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 65.9,
+        "y": 60.3,
+        "rot": -32,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 68.7,
+        "y": 59,
+        "rot": -16,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 71.8,
+        "y": 58.1,
+        "rot": -16,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 74.9,
+        "y": 57.2,
+        "rot": -16,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 78,
+        "y": 56.3,
+        "rot": -16,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 81.2,
+        "y": 55.7,
+        "rot": -6,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 84.5,
+        "y": 55.4,
+        "rot": -6,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 87.7,
+        "y": 55,
+        "rot": -6,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 91,
+        "y": 54.7,
+        "rot": -6,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 94,
+        "y": 54.6,
+        "rot": 3,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 96.7,
+        "y": 54.7,
+        "rot": 3,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 99.5,
+        "y": 54.9,
+        "rot": 3,
+        "material": "piedra"
+      },
+      {
+        "tipo": "puerta",
+        "x": 102.3,
+        "y": 55,
+        "rot": 3,
+        "material": "piedra"
+      },
+      {
+        "tipo": "puerta",
+        "x": 105,
+        "y": 55.2,
+        "rot": 3,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 107.7,
+        "y": 55.8,
+        "rot": 24,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 110.2,
+        "y": 57,
+        "rot": 24,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 112.7,
+        "y": 58.1,
+        "rot": 24,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 115.3,
+        "y": 59.3,
+        "rot": 24,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 117.8,
+        "y": 60.4,
+        "rot": 24,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 120.2,
+        "y": 62,
+        "rot": 42,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 122.2,
+        "y": 63.8,
+        "rot": 42,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 124.3,
+        "y": 65.7,
+        "rot": 42,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 126.4,
+        "y": 67.6,
+        "rot": 42,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 128.5,
+        "y": 69.5,
+        "rot": 42,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 130.3,
+        "y": 71.6,
+        "rot": 55,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 132,
+        "y": 73.9,
+        "rot": 55,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 133.6,
+        "y": 76.2,
+        "rot": 55,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 135.2,
+        "y": 78.5,
+        "rot": 55,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 136.8,
+        "y": 80.7,
+        "rot": 55,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 138.1,
+        "y": 83.2,
+        "rot": 73,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 138.9,
+        "y": 85.9,
+        "rot": 73,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 139.7,
+        "y": 88.6,
+        "rot": 73,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 140.6,
+        "y": 91.2,
+        "rot": 73,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 141.4,
+        "y": 93.9,
+        "rot": 73,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 141.9,
+        "y": 96.6,
+        "rot": 86,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 142.1,
+        "y": 99.4,
+        "rot": 86,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 142.3,
+        "y": 102.1,
+        "rot": 86,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 142.5,
+        "y": 104.9,
+        "rot": 86,
+        "material": "piedra"
+      },
+      {
+        "tipo": "recto",
+        "x": 142.8,
+        "y": 107.6,
+        "rot": 86,
+        "material": "piedra"
+      },
+      {
+        "tipo": "torre",
+        "x": 142.9,
+        "y": 109,
+        "rot": 0,
+        "material": "piedra"
+      },
+      {
+        "tipo": "torre",
+        "x": 132.9,
+        "y": 133.6,
+        "rot": 0,
+        "material": "piedra"
+      },
+      {
+        "tipo": "torre",
+        "x": 118.1,
+        "y": 155.5,
+        "rot": 0,
+        "material": "piedra"
+      },
+      {
+        "tipo": "torre",
+        "x": 92.8,
+        "y": 164.9,
+        "rot": 0,
+        "material": "piedra"
+      },
+      {
+        "tipo": "torre",
+        "x": 66,
+        "y": 161.6,
+        "rot": 0,
+        "material": "piedra"
+      },
+      {
+        "tipo": "torre",
+        "x": 31.3,
+        "y": 122.5,
+        "rot": 0,
+        "material": "piedra"
+      },
+      {
+        "tipo": "torre",
+        "x": 31,
+        "y": 95.5,
+        "rot": 0,
+        "material": "piedra"
+      },
+      {
+        "tipo": "torre",
+        "x": 45.3,
+        "y": 73,
+        "rot": 0,
+        "material": "piedra"
+      },
+      {
+        "tipo": "torre",
+        "x": 67.2,
+        "y": 59.4,
+        "rot": 0,
+        "material": "piedra"
+      },
+      {
+        "tipo": "torre",
+        "x": 92.6,
+        "y": 54.5,
+        "rot": 0,
+        "material": "piedra"
+      },
+      {
+        "tipo": "torre",
+        "x": 119.1,
+        "y": 61,
+        "rot": 0,
+        "material": "piedra"
+      },
+      {
+        "tipo": "torre",
+        "x": 137.6,
+        "y": 81.9,
+        "rot": 0,
+        "material": "piedra"
+      }
+    ]
+  },
+  "caminos": [
+    [
+      [
+        183,
+        183
+      ],
+      [
+        180,
+        180
+      ],
+      [
+        177,
+        177
+      ],
+      [
+        174,
+        174
+      ],
+      [
+        171,
+        174
+      ],
+      [
+        168,
+        174
+      ],
+      [
+        165,
+        173
+      ],
+      [
+        162,
+        171
+      ],
+      [
+        159,
+        170
+      ],
+      [
+        156,
+        170
+      ],
+      [
+        153,
+        169
+      ],
+      [
+        150,
+        166
+      ],
+      [
+        147,
+        163
+      ],
+      [
+        144,
+        160
+      ],
+      [
+        141,
+        157
+      ],
+      [
+        138,
+        154
+      ],
+      [
+        135,
+        151
+      ],
+      [
+        132,
+        148
+      ],
+      [
+        129,
+        145
+      ],
+      [
+        126,
+        142
+      ],
+      [
+        123,
+        139
+      ],
+      [
+        120,
+        136
+      ],
+      [
+        117,
+        133
+      ],
+      [
+        114,
+        130
+      ],
+      [
+        111,
+        128
+      ],
+      [
+        108,
+        127
+      ],
+      [
+        105,
+        124
+      ],
+      [
+        102,
+        124
+      ],
+      [
+        99,
+        122
+      ],
+      [
+        96,
+        119
+      ],
+      [
+        93,
+        116
+      ],
+      [
+        90,
+        113
+      ],
+      [
+        87,
+        110
+      ]
+    ],
+    [
+      [
+        0,
+        172
+      ],
+      [
+        3,
+        169
+      ],
+      [
+        6,
+        166
+      ],
+      [
+        9,
+        163
+      ],
+      [
+        12,
+        160
+      ],
+      [
+        15,
+        160
+      ],
+      [
+        18,
+        160
+      ],
+      [
+        21,
+        159
+      ],
+      [
+        24,
+        156
+      ],
+      [
+        27,
+        154
+      ],
+      [
+        30,
+        153
+      ],
+      [
+        33,
+        150
+      ],
+      [
+        36,
+        148
+      ],
+      [
+        39,
+        148
+      ],
+      [
+        42,
+        148
+      ],
+      [
+        45,
+        148
+      ],
+      [
+        48,
+        147
+      ],
+      [
+        51,
+        144
+      ],
+      [
+        54,
+        141
+      ],
+      [
+        57,
+        138
+      ],
+      [
+        60,
+        135
+      ],
+      [
+        63,
+        132
+      ],
+      [
+        66,
+        129
+      ],
+      [
+        69,
+        126
+      ],
+      [
+        72,
+        123
+      ],
+      [
+        75,
+        120
+      ],
+      [
+        78,
+        117
+      ],
+      [
+        81,
+        114
+      ],
+      [
+        84,
+        111
+      ]
+    ],
+    [
+      [
+        118,
+        0
+      ],
+      [
+        116,
+        3
+      ],
+      [
+        114,
+        6
+      ],
+      [
+        113,
+        9
+      ],
+      [
+        113,
+        12
+      ],
+      [
+        113,
+        15
+      ],
+      [
+        113,
+        18
+      ],
+      [
+        113,
+        21
+      ],
+      [
+        112,
+        24
+      ],
+      [
+        112,
+        27
+      ],
+      [
+        112,
+        30
+      ],
+      [
+        112,
+        33
+      ],
+      [
+        111,
+        36
+      ],
+      [
+        110,
+        39
+      ],
+      [
+        108,
+        42
+      ],
+      [
+        107,
+        45
+      ],
+      [
+        107,
+        48
+      ],
+      [
+        106,
+        50
+      ],
+      [
+        104,
+        53
+      ],
+      [
+        104,
+        56
+      ],
+      [
+        104,
+        59
+      ],
+      [
+        103,
+        62
+      ],
+      [
+        102,
+        65
+      ],
+      [
+        101,
+        68
+      ],
+      [
+        101,
+        71
+      ],
+      [
+        100,
+        74
+      ],
+      [
+        100,
+        77
+      ],
+      [
+        97,
+        80
+      ],
+      [
+        96,
+        83
+      ],
+      [
+        96,
+        86
+      ],
+      [
+        96,
+        89
+      ],
+      [
+        96,
+        92
+      ],
+      [
+        96,
+        95
+      ],
+      [
+        96,
+        98
+      ],
+      [
+        94,
+        101
+      ],
+      [
+        91,
+        104
+      ],
+      [
+        88,
+        107
+      ]
+    ]
+  ],
+  "zonasVerdes": [
+    {
+      "tipo": "huerto",
+      "x": 70,
+      "y": 148,
+      "r": 3
+    },
+    {
+      "tipo": "huerto",
+      "x": 84,
+      "y": 142,
+      "r": 4
+    },
+    {
+      "tipo": "parque",
+      "x": 42,
+      "y": 101,
+      "r": 4
+    },
+    {
+      "tipo": "huerto",
+      "x": 134,
+      "y": 96,
+      "r": 4
+    },
+    {
+      "tipo": "parque",
+      "x": 63,
+      "y": 103,
+      "r": 3
+    }
+  ],
+  "parcelasReservadas": [],
+  "luces": [
+    {
+      "x": 126,
+      "y": 142,
+      "id": "farola_calle",
+      "radio": 6,
+      "color": "#ffb75a"
+    },
+    {
+      "x": 104,
+      "y": 57,
+      "id": "farola_calle",
+      "radio": 6,
+      "color": "#ffb75a"
+    },
+    {
+      "x": 91,
+      "y": 115,
+      "id": "farola_calle",
+      "radio": 6,
+      "color": "#ffb75a"
+    },
+    {
+      "x": 80,
+      "y": 114,
+      "id": "farola_calle",
+      "radio": 6,
+      "color": "#ffb75a"
+    },
+    {
+      "x": 92,
+      "y": 104,
+      "id": "farola_calle",
+      "radio": 6,
+      "color": "#ffb75a"
+    },
+    {
+      "x": 59,
+      "y": 137,
+      "id": "farola_calle",
+      "radio": 6,
+      "color": "#ffb75a"
+    },
+    {
+      "x": 103,
+      "y": 66,
+      "id": "farola_calle",
+      "radio": 6,
+      "color": "#ffb75a"
+    },
+    {
+      "x": 97,
+      "y": 93,
+      "id": "farola_calle",
+      "radio": 6,
+      "color": "#ffb75a"
+    }
+  ],
+  "edificios": [
+    {
+      "id": "ayuntamiento_vetrheim3-9__poi__capital_regional_1409_1614__ayuntamiento__1",
+      "tipo": "ayuntamiento",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:ayuntamiento:1",
+      "cx": 78.3,
+      "cy": 100.3,
+      "rot": -45,
+      "w": 15,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 15,
+          "h": 9
+        },
+        {
+          "ox": 4,
+          "oy": -7,
+          "w": 7,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 82,
+        "y": 104
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_gremio_vetrheim3-9__poi__capital_regional_1409_1614__casa_gremio__5",
+      "tipo": "casa_gremio",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:casa_gremio:5",
+      "cx": 80,
+      "cy": 124,
+      "rot": -225,
+      "w": 13,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 10
+        }
+      ],
+      "puerta": {
+        "x": 75,
+        "y": 119
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "posada_vetrheim3-9__poi__capital_regional_1409_1614__posada__2",
+      "tipo": "posada",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:posada:2",
+      "cx": 100.3,
+      "cy": 114.7,
+      "rot": 45,
+      "w": 13,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 8
+        },
+        {
+          "ox": -3.5,
+          "oy": -6.5,
+          "w": 6,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 97,
+        "y": 118
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "templo_vetrheim3-9__poi__capital_regional_1409_1614__templo__0",
+      "tipo": "templo",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:templo:0",
+      "cx": 71.7,
+      "cy": 115.7,
+      "rot": -45,
+      "w": 12,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 8
+        },
+        {
+          "ox": -2.5,
+          "oy": -6.5,
+          "w": 7,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 75,
+        "y": 119
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "cuartel_guardia_vetrheim3-9__poi__capital_regional_1409_1614__cuartel_guardia__3",
+      "tipo": "cuartel_guardia",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:cuartel_guardia:3",
+      "cx": 94.7,
+      "cy": 126.3,
+      "rot": -135,
+      "w": 10,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 8
+        },
+        {
+          "ox": 2,
+          "oy": -6.5,
+          "w": 6,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 98,
+        "y": 123
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_de_cambio_vetrheim3-9__poi__capital_regional_1409_1614__casa_de_cambio__4",
+      "tipo": "casa_de_cambio",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:casa_de_cambio:4",
+      "cx": 91.1,
+      "cy": 81.3,
+      "rot": -63,
+      "w": 11,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 11,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 95,
+        "y": 83
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "teatro_vetrheim3-9__poi__capital_regional_1409_1614__teatro__21",
+      "tipo": "teatro",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:teatro:21",
+      "cx": 45.8,
+      "cy": 128.4,
+      "rot": -117,
+      "w": 12,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 10
+        },
+        {
+          "ox": 3,
+          "oy": -7.5,
+          "w": 6,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 51,
+        "y": 126
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "joyeria_vetrheim3-9__poi__capital_regional_1409_1614__joyeria__26",
+      "tipo": "joyeria",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:joyeria:26",
+      "cx": 113.7,
+      "cy": 97.3,
+      "rot": 45,
+      "w": 13,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 9
+        }
+      ],
+      "puerta": {
+        "x": 110,
+        "y": 101
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_noble_vetrheim3-9__poi__capital_regional_1409_1614__casa_noble__22",
+      "tipo": "casa_noble",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:casa_noble:22",
+      "cx": 76.6,
+      "cy": 67.8,
+      "rot": -27,
+      "w": 11,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 11,
+          "h": 10
+        }
+      ],
+      "puerta": {
+        "x": 79,
+        "y": 73
+      },
+      "reservadoJugador": true
+    },
+    {
+      "id": "joyeria_vetrheim3-9__poi__capital_regional_1409_1614__joyeria__28",
+      "tipo": "joyeria",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:joyeria:28",
+      "cx": 48.3,
+      "cy": 86.3,
+      "rot": -45,
+      "w": 12,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 9
+        }
+      ],
+      "puerta": {
+        "x": 52,
+        "y": 90
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_noble_vetrheim3-9__poi__capital_regional_1409_1614__casa_noble__18",
+      "tipo": "casa_noble",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:casa_noble:18",
+      "cx": 127.3,
+      "cy": 118.9,
+      "rot": -243,
+      "w": 13,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 8
+        },
+        {
+          "ox": 4,
+          "oy": -6,
+          "w": 5,
+          "h": 4
+        },
+        {
+          "ox": -4,
+          "oy": -6,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 123,
+        "y": 117
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "taberna_vetrheim3-9__poi__capital_regional_1409_1614__taberna__12",
+      "tipo": "taberna",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:taberna:12",
+      "cx": 70.7,
+      "cy": 84.7,
+      "rot": -225,
+      "w": 11,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 11,
+          "h": 9
+        }
+      ],
+      "puerta": {
+        "x": 66,
+        "y": 80
+      },
+      "reservadoJugador": true
+    },
+    {
+      "id": "casa_noble_vetrheim3-9__poi__capital_regional_1409_1614__casa_noble__20",
+      "tipo": "casa_noble",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:casa_noble:20",
+      "cx": 97.9,
+      "cy": 150.3,
+      "rot": -207,
+      "w": 12,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 96,
+        "y": 146
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "biblioteca_publica_vetrheim3-9__poi__capital_regional_1409_1614__biblioteca_publica__25",
+      "tipo": "biblioteca_publica",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:biblioteca_publica:25",
+      "cx": 58.7,
+      "cy": 144.7,
+      "rot": -225,
+      "w": 10,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 9
+        },
+        {
+          "ox": 2,
+          "oy": -7,
+          "w": 6,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 54,
+        "y": 140
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "banos_publicos_vetrheim3-9__poi__capital_regional_1409_1614__banos_publicos__24",
+      "tipo": "banos_publicos",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:banos_publicos:24",
+      "cx": 113.3,
+      "cy": 73.7,
+      "rot": 45,
+      "w": 10,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 8
+        },
+        {
+          "ox": -2,
+          "oy": -6.5,
+          "w": 6,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 110,
+        "y": 77
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "taberna_vetrheim3-9__poi__capital_regional_1409_1614__taberna__7",
+      "tipo": "taberna",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:taberna:7",
+      "cx": 96.1,
+      "cy": 139.7,
+      "rot": -27,
+      "w": 10,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 98,
+        "y": 144
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_vetrheim3-9__poi__capital_regional_1409_1614__casa_modesta__27",
+      "tipo": "casa_modesta",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:casa_modesta:27",
+      "cx": 117.7,
+      "cy": 114.1,
+      "rot": -63,
+      "w": 9,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 122,
+        "y": 116
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "tienda_vetrheim3-9__poi__capital_regional_1409_1614__tienda__23",
+      "tipo": "tienda",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:tienda:23",
+      "cx": 63,
+      "cy": 75,
+      "rot": -45,
+      "w": 10,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 66,
+        "y": 78
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_vetrheim3-9__poi__capital_regional_1409_1614__casa_modesta__29",
+      "tipo": "casa_modesta",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:casa_modesta:29",
+      "cx": 57.3,
+      "cy": 95.3,
+      "rot": -225,
+      "w": 8,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 53,
+        "y": 91
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "panaderia_vetrheim3-9__poi__capital_regional_1409_1614__panaderia__30",
+      "tipo": "panaderia",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:panaderia:30",
+      "cx": 123.3,
+      "cy": 131.7,
+      "rot": 45,
+      "w": 8,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 120,
+        "y": 135
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "herreria_vetrheim3-9__poi__capital_regional_1409_1614__herreria__9",
+      "tipo": "herreria",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:herreria:9",
+      "cx": 59,
+      "cy": 128,
+      "rot": 45,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 56,
+        "y": 131
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "carniceria_vetrheim3-9__poi__capital_regional_1409_1614__carniceria__17",
+      "tipo": "carniceria",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:carniceria:17",
+      "cx": 74,
+      "cy": 139,
+      "rot": 45,
+      "w": 8,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 71,
+        "y": 142
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "botica_vetrheim3-9__poi__capital_regional_1409_1614__botica__16",
+      "tipo": "botica",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:botica:16",
+      "cx": 115.6,
+      "cy": 139.6,
+      "rot": -225,
+      "w": 9,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 112,
+        "y": 136
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_vetrheim3-9__poi__capital_regional_1409_1614__casa_modesta__6",
+      "tipo": "casa_modesta",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:casa_modesta:6",
+      "cx": 122.6,
+      "cy": 84.4,
+      "rot": 45,
+      "w": 9,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 120,
+        "y": 87
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_vetrheim3-9__poi__capital_regional_1409_1614__casa_modesta__11",
+      "tipo": "casa_modesta",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:casa_modesta:11",
+      "cx": 80.5,
+      "cy": 152.4,
+      "rot": -153,
+      "w": 9,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 82,
+        "y": 149
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "panaderia_vetrheim3-9__poi__capital_regional_1409_1614__panaderia__19",
+      "tipo": "panaderia",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:panaderia:19",
+      "cx": 48.4,
+      "cy": 140.4,
+      "rot": -45,
+      "w": 9,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 51,
+        "y": 143
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "astillero_vetrheim3-9__poi__capital_regional_1409_1614__astillero__14",
+      "tipo": "astillero",
+      "semilla": "vetrheim3-9:poi:capital_regional_1409_1614:astillero:14",
+      "cx": 98.4,
+      "cy": 60.4,
+      "rot": -45,
+      "w": 8,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 101,
+        "y": 63
+      },
+      "reservadoJugador": false
+    }
+  ]
+}

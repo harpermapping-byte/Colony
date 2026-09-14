@@ -1047,6 +1047,87 @@ ejecute `reiniciarFaunaViva.ps1 -Confirmar` en su propio hosting y
 confirme si baja de verdad la cantidad de animales visibles cerca del
 spawn.
 
+## Bug real de concurrencia en `matarIndividuo`: dos depredadores/cazadores reclamando la misma presa reventaban el servidor con errores repetidos de BD (2026-09-14, encontrado por un simulacro de carga propio, pedido streamer: "prueba tu a meter prueba de lag de MS de ver que proceso se queda pillado en una simulacion de jugar varios jugadores haciendo acciones")
+
+Para responder de verdad a "qué proceso se queda pillado" (no solo repetir
+el análisis de un perfil `--cpu-prof` ya mandado por el streamer, sino
+generar uno propio), se construyó un arnés de simulación con clientes
+`colyseus.js` reales conectados a un servidor real (`--cpu-prof`), sin
+navegador: movimiento/chat/talar mezclados, y un subconjunto con
+privilegio de jarl haciendo teleports. Un primer pase con BD vacía y 20
+clientes confirmó lo ya sospechado (server 99%+ idle, el coste por
+tick/mensaje es barato a estos números) — pero eso no prueba nada sobre
+la hipótesis real del streamer ("ese proceso se lleva algo" con el tiempo
+acumulado), así que se sembró a propósito una BD con miles de fauna/
+árboles YA persistidos en el sector del spawn (simulando meses de uso
+real) y clientes "rebotadores" cruzando la frontera del sector cada 8.5s
+(justo por encima del intervalo de reevaluación de 8s de `HubRoom`) para
+forzar activar/desactivar ese sector una y otra vez con mucha fauna densa
+dentro, mientras otro grupo de clientes se mueve de fondo disparando el
+agro/caza normal.
+
+**Encontrado así, no leyendo código a ciegas**: el log del servidor se
+llenó de `Error: UNIQUE constraint failed: cadaveres.id` repetido a
+cientos/miles de veces (un solo archivo de log llegó a 320KB). Causa
+real, confirmada leyendo `faunaSalvajeViva.ts::tick()`: la caza autónoma
+de depredadores (fase 10 más arriba, `presaMasCercana`) NO comprueba si
+otro depredador YA está persiguiendo a la misma presa — dos depredadores
+cercanos (o un depredador + la caza manual de un jugador) pueden capturar
+al MISMO individuo en el MISMO tick, y `HubRoom.ts` dispara
+`onFaunaMuerta(presaId)` para cada entrada de `cacerias`/`atrapados` con
+`void ...` **sin esperar entre iteraciones** — el mismo patrón "lee
+estado compartido → await → escribe estado compartido" que el resto del
+proyecto ya conoce (ver `colaPorArbol`/`colaPorConstruccion`/etc. en
+CLAUDE.md), aquí sin cubrir: las dos llamadas a `matarIndividuo(mismoId)`
+leían `vivos` ANTES de que ninguna llegara a su `splice`, y las DOS
+intentaban crear el mismo `cadaver:<id>` → colisión real de clave
+primaria.
+
+**Verificado primero que NO tumba el servidor** (dado el riesgo real de
+un rechazo de promesa sin manejar en Node 22, y que este proyecto
+decidió explícitamente NO poner un `process.on("unhandledRejection")`
+global — ver CLAUDE.md, 32º pedido): un repro dedicado contra un
+servidor real, con un cliente conectado y teleportado al sector caliente
+durante 30s, confirmó que el proceso sigue vivo (`servidor.on("exit")`
+nunca dispara) pese al aluvión de errores — es una excepción capturada
+dentro del propio Colyseus/Node en el punto de `void`, no un crash, pero
+sí CPU/log desperdiciados sin límite y un cadáver que a veces no llega a
+crearse para la unidad ganadora del "empate".
+
+**Arreglo, mismo patrón exacto ya usado en `GestorBosques.colaPorArbol`
+(`bosquesVivos.ts`)**: `GestorFaunaSalvaje` gana `private colaPorFauna =
+new ColaPorClave()`, y el cuerpo entero de `matarIndividuo(id)` se
+envuelve en `this.colaPorFauna.ejecutar(id, async () => {...})` — dos
+llamadas para el MISMO id ya no pueden leer `vivos` a la vez: la segunda
+espera a que la primera termine (incluida su propia escritura a BD) y,
+al ejecutarse después, ya no encuentra el individuo (`idx === -1`),
+devolviendo `null` sin más en vez de reventar. Llamadas para IDs
+DISTINTOS no se bloquean entre sí (cada clave tiene su propia fila).
+
+**Verificación honesta, en dos pasos** (la primera intentona con el
+arnés de carga completo fue engañosa): re-ejecutar el mismo escenario de
+carga con la fauna sembrada NO es determinista (depende de qué
+depredador/cazador llega primero a qué presa en cada tick, con
+`Math.random()` real de por medio) — reproducirlo con BD fresca dio 0
+errores en una pasada y también los dio en el control sin el fix (mala
+suerte de timing, no prueba nada por sí sola). La prueba que sí demuestra
+el fix es un repro DIRECTO y determinista: llamar
+`Promise.all([gestor.matarIndividuo(id), gestor.matarIndividuo(id)])`
+sobre el MISMO individuo con una BD falsa que lanza el mismo error real
+(`UNIQUE constraint failed`) ante un id duplicado — confirmado con
+`git stash` de ambos lados: el código SIN el fix revienta con
+exactamente ese mensaje, el código CON el fix nunca lanza y crea
+exactamente un cadáver. Este mismo repro quedó como test permanente,
+`server/test/faunaSalvajeViva.test.ts` ("matarIndividuo: dos llamadas
+CONCURRENTES para el MISMO id nunca duplican el cadáver").
+
+Verificado: `cd server && npx tsc --noEmit` limpio, `npm test`
+1367/1367 (1366+1, sin regresión). **Sin confirmar en producción real**
+(el propio hosting del streamer) que esto elimine el spam de errores que
+podría estar viendo — pendiente de que haga `git pull`+reinicio y lo
+confirme, aunque el repro determinista deja poco margen de duda sobre
+que el mecanismo funciona.
+
 ## Verificado (v1)
 
 - Test de servidor del gestor: recolocación por hora al crear room,

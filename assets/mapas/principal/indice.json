@@ -40,7 +40,7 @@
     "roca_b"
   ],
   "nombre": "vetrheim",
-  "semilla": "vetrheim2-3",
+  "semilla": "vetrheim3-9",
   "anchoChunks": 100,
   "altoChunks": 100,
   "tamanoChunk": 32,
@@ -75,673 +75,744 @@
     "y": 1600
   },
   "spawn": {
-    "x": 1126,
-    "y": 2001
+    "x": 1448,
+    "y": 1669
   },
   "portales": [
     {
       "tipo": "interior",
-      "x": 2480,
-      "y": 116,
-      "edificio": "ruina_vetrheim2-3__poi__ruinas_pequenas_2480_112",
-      "tipoEdificioId": "ruina",
-      "nombreDestino": "Ruinas Pequenas"
+      "x": 1065,
+      "y": 157,
+      "edificio": "barco_encallado_vetrheim3-9__poi__barco_encallado_1065_153",
+      "tipoEdificioId": "barco_encallado",
+      "nombreDestino": "Barco Encallado"
     },
     {
       "tipo": "interior",
-      "x": 2682,
-      "y": 68,
-      "edificio": "arboleda_corrupta_vetrheim2-3__poi__arboleda_corrupta_poi_2682_68",
-      "tipoEdificioId": "arboleda_corrupta",
-      "esMazmorra": true,
-      "nombreDestino": "Arboleda Corrupta Poi"
-    },
-    {
-      "tipo": "interior",
-      "x": 3198,
-      "y": 198,
-      "edificio": "ruina_vetrheim2-3__poi__ruinas_pequenas_3198_194",
-      "tipoEdificioId": "ruina",
-      "nombreDestino": "Ruinas Pequenas"
-    },
-    {
-      "tipo": "interior",
-      "x": 554,
-      "y": 364,
-      "edificio": "torre_nigromante_vetrheim2-3__poi__torre_vigia_enemiga_554_360",
-      "tipoEdificioId": "torre_nigromante",
-      "esMazmorra": true,
-      "nombreDestino": "Torre Vigia Enemiga"
-    },
-    {
-      "tipo": "interior",
-      "x": 1220,
-      "y": 265,
-      "edificio": "ruinas_torre_caida_vetrheim2-3__poi__mazmorra_olvidada_1220_261",
-      "tipoEdificioId": "ruinas_torre_caida",
-      "esMazmorra": true,
-      "nombreDestino": "Mazmorra Olvidada"
-    },
-    {
-      "tipo": "interior",
-      "x": 1722,
-      "y": 265,
-      "edificio": "ruinas_templo_olvidado_vetrheim2-3__poi__ruinas_grandes_1722_261",
-      "tipoEdificioId": "ruinas_templo_olvidado",
-      "esMazmorra": true,
-      "nombreDestino": "Ruinas Grandes"
-    },
-    {
-      "tipo": "interior",
-      "x": 2094,
-      "y": 296,
-      "edificio": "ruina_vetrheim2-3__poi__ruinas_pequenas_2094_292",
-      "tipoEdificioId": "ruina",
-      "nombreDestino": "Ruinas Pequenas"
-    },
-    {
-      "tipo": "interior",
-      "x": 478,
-      "y": 433,
-      "edificio": "arboleda_corrupta_vetrheim2-3__poi__arboleda_corrupta_poi_478_433",
-      "tipoEdificioId": "arboleda_corrupta",
-      "esMazmorra": true,
-      "nombreDestino": "Arboleda Corrupta Poi"
-    },
-    {
-      "tipo": "exterior",
-      "x": 934,
-      "y": 507,
-      "puertaX": 935,
-      "puertaY": 510,
-      "nombreDestino": "Poblado Orco Poi",
-      "destino": {
-        "tipo": "region",
-        "mapaId": "pois/poblado_orco_poi_949_534"
-      }
-    },
-    {
-      "tipo": "exterior",
-      "x": 994,
-      "y": 396,
-      "puertaX": 996,
-      "puertaY": 397,
-      "nombreDestino": "Parderrubias",
-      "destino": {
-        "tipo": "region",
-        "mapaId": "pois/aldea_pescadores_1019_401"
-      }
-    },
-    {
-      "tipo": "interior",
-      "x": 2993,
-      "y": 461,
-      "edificio": "cueva_trasgos_vetrheim2-3__poi__cueva_profunda_2993_461",
-      "tipoEdificioId": "cueva_trasgos",
-      "esMazmorra": true,
-      "nombreDestino": "Cueva Profunda"
-    },
-    {
-      "tipo": "exterior",
-      "x": 1947,
-      "y": 598,
-      "puertaX": 1945,
-      "puertaY": 599,
-      "nombreDestino": "Guarida Bandidos",
-      "destino": {
-        "tipo": "region",
-        "mapaId": "pois/guarida_bandidos_1908_624"
-      }
-    },
-    {
-      "tipo": "interior",
-      "x": 2877,
-      "y": 656,
-      "edificio": "cueva_trasgos_vetrheim2-3__poi__cueva_profunda_2877_656",
-      "tipoEdificioId": "cueva_trasgos",
-      "esMazmorra": true,
-      "nombreDestino": "Cueva Profunda"
-    },
-    {
-      "tipo": "interior",
-      "x": 853,
-      "y": 967,
-      "edificio": "ruina_vetrheim2-3__poi__ruinas_pequenas_853_963",
-      "tipoEdificioId": "ruina",
-      "nombreDestino": "Ruinas Pequenas"
-    },
-    {
-      "tipo": "interior",
-      "x": 1462,
-      "y": 804,
-      "edificio": "torre_nigromante_vetrheim2-3__poi__torre_vigia_enemiga_1462_800",
-      "tipoEdificioId": "torre_nigromante",
-      "esMazmorra": true,
-      "nombreDestino": "Torre Vigia Enemiga"
-    },
-    {
-      "tipo": "exterior",
-      "x": 2655,
-      "y": 927,
-      "puertaX": 2653,
-      "puertaY": 928,
-      "nombreDestino": "Cabeza la Vaca",
-      "destino": {
-        "tipo": "region",
-        "mapaId": "pois/capital_regional_2583_946"
-      }
-    },
-    {
-      "tipo": "exterior",
-      "x": 2552,
-      "y": 982,
-      "puertaX": 2554,
-      "puertaY": 980,
-      "nombreDestino": "Cabeza la Vaca",
-      "destino": {
-        "tipo": "region",
-        "mapaId": "pois/capital_regional_2583_946"
-      }
-    },
-    {
-      "tipo": "exterior",
-      "x": 2557,
-      "y": 902,
-      "puertaX": 2559,
-      "puertaY": 904,
-      "nombreDestino": "Cabeza la Vaca",
-      "destino": {
-        "tipo": "region",
-        "mapaId": "pois/capital_regional_2583_946"
-      }
-    },
-    {
-      "tipo": "exterior",
-      "x": 2631,
-      "y": 856,
-      "puertaX": 2634,
-      "puertaY": 854,
-      "nombreDestino": "Poblado Orco Poi",
-      "destino": {
-        "tipo": "region",
-        "mapaId": "pois/poblado_orco_poi_2666_826"
-      }
-    },
-    {
-      "tipo": "interior",
-      "x": 306,
-      "y": 1126,
-      "edificio": "cueva_goblins_vetrheim2-3__poi__cueva_pequena_306_1126",
+      "x": 2691,
+      "y": 160,
+      "edificio": "cueva_goblins_vetrheim3-9__poi__cueva_pequena_2691_160",
       "tipoEdificioId": "cueva_goblins",
       "esMazmorra": true,
       "nombreDestino": "Cueva Pequena"
     },
     {
       "tipo": "interior",
-      "x": 1001,
-      "y": 1076,
-      "edificio": "nido_aranas_gigante_vetrheim2-3__poi__nido_aranas_gigante_poi_1001_1076",
-      "tipoEdificioId": "nido_aranas_gigante",
+      "x": 2978,
+      "y": 137,
+      "edificio": "cueva_murcielagos_vetrheim3-9__poi__cueva_colonia_murcielagos_2978_137",
+      "tipoEdificioId": "cueva_murcielagos",
       "esMazmorra": true,
-      "nombreDestino": "Nido Aranas Gigante Poi"
+      "nombreDestino": "Cueva Colonia Murcielagos"
+    },
+    {
+      "tipo": "exterior",
+      "x": 3148,
+      "y": 24,
+      "puertaX": 3146,
+      "puertaY": 27,
+      "nombreDestino": "Guarida Bandidos",
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/guarida_bandidos_3117_63"
+      }
     },
     {
       "tipo": "interior",
-      "x": 257,
-      "y": 1529,
-      "edificio": "ruina_vetrheim2-3__poi__ruinas_pequenas_257_1525",
-      "tipoEdificioId": "ruina",
-      "nombreDestino": "Ruinas Pequenas"
+      "x": 2500,
+      "y": 316,
+      "edificio": "ciudadela_caida_vetrheim3-9__poi__ciudadela_caida_poi_2500_312",
+      "tipoEdificioId": "ciudadela_caida",
+      "esMazmorra": true,
+      "nombreDestino": "Ciudadela Caida Poi"
     },
     {
       "tipo": "interior",
-      "x": 791,
-      "y": 1512,
-      "edificio": "guarida_lobos_vetrheim2-3__poi__guarida_lobo_791_1512",
+      "x": 2677,
+      "y": 312,
+      "edificio": "cueva_murcielagos_vetrheim3-9__poi__cueva_colonia_murcielagos_2677_312",
+      "tipoEdificioId": "cueva_murcielagos",
+      "esMazmorra": true,
+      "nombreDestino": "Cueva Colonia Murcielagos"
+    },
+    {
+      "tipo": "exterior",
+      "x": 3124,
+      "y": 409,
+      "puertaX": 3125,
+      "puertaY": 406,
+      "nombreDestino": "Poblado Orco Poi",
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/poblado_orco_poi_3145_375"
+      }
+    },
+    {
+      "tipo": "interior",
+      "x": 320,
+      "y": 535,
+      "edificio": "guarida_lobos_vetrheim3-9__poi__guarida_lobo_320_535",
       "tipoEdificioId": "guarida_lobos",
       "esMazmorra": true,
       "nombreDestino": "Guarida Lobo"
     },
     {
       "tipo": "interior",
-      "x": 818,
-      "y": 1540,
-      "edificio": "ruina_vetrheim2-3__poi__ruinas_pequenas_818_1536",
-      "tipoEdificioId": "ruina",
-      "nombreDestino": "Ruinas Pequenas"
+      "x": 660,
+      "y": 543,
+      "edificio": "colmena_insectos_vetrheim3-9__poi__colmena_insectos_poi_660_543",
+      "tipoEdificioId": "colmena_insectos",
+      "esMazmorra": true,
+      "nombreDestino": "Colmena Insectos Poi"
     },
     {
       "tipo": "interior",
-      "x": 2080,
-      "y": 1563,
-      "edificio": "cripta_ancestral_vetrheim2-3__poi__mazmorra_antigua_2080_1559",
-      "tipoEdificioId": "cripta_ancestral",
+      "x": 1767,
+      "y": 478,
+      "edificio": "casa_humilde_vetrheim3-9__poi__cabana_cazador_1767_474",
+      "tipoEdificioId": "casa_humilde",
+      "nombreDestino": "Cabana Cazador"
+    },
+    {
+      "tipo": "interior",
+      "x": 116,
+      "y": 784,
+      "edificio": "torre_nigromante_vetrheim3-9__poi__torre_vigia_enemiga_116_780",
+      "tipoEdificioId": "torre_nigromante",
       "esMazmorra": true,
-      "nombreDestino": "Mazmorra Antigua"
+      "nombreDestino": "Torre Vigia Enemiga"
+    },
+    {
+      "tipo": "interior",
+      "x": 1260,
+      "y": 741,
+      "edificio": "nido_aranas_gigante_vetrheim3-9__poi__nido_aranas_gigante_poi_1260_741",
+      "tipoEdificioId": "nido_aranas_gigante",
+      "esMazmorra": true,
+      "nombreDestino": "Nido Aranas Gigante Poi"
+    },
+    {
+      "tipo": "interior",
+      "x": 1468,
+      "y": 773,
+      "edificio": "casa_humilde_vetrheim3-9__poi__cabana_cazador_1468_769",
+      "tipoEdificioId": "casa_humilde",
+      "nombreDestino": "Cabana Cazador"
+    },
+    {
+      "tipo": "interior",
+      "x": 2385,
+      "y": 704,
+      "edificio": "tienda_vetrheim3-9__poi__tienda_cazador_2385_700",
+      "tipoEdificioId": "tienda",
+      "nombreDestino": "Tienda Cazador"
     },
     {
       "tipo": "exterior",
-      "x": 2401,
-      "y": 1624,
-      "puertaX": 2399,
-      "puertaY": 1621,
+      "x": 2544,
+      "y": 728,
+      "puertaX": 2544,
+      "puertaY": 731,
       "nombreDestino": "Guarida Bandidos",
       "destino": {
         "tipo": "region",
-        "mapaId": "pois/guarida_bandidos_2386_1597"
+        "mapaId": "pois/guarida_bandidos_2551_773"
       }
     },
     {
       "tipo": "interior",
-      "x": 1400,
-      "y": 1800,
-      "edificio": "torre_nigromante_vetrheim2-3__poi__torre_vigia_enemiga_1400_1796",
-      "tipoEdificioId": "torre_nigromante",
+      "x": 95,
+      "y": 945,
+      "edificio": "barco_encallado_vetrheim3-9__poi__barco_encallado_95_941",
+      "tipoEdificioId": "barco_encallado",
+      "nombreDestino": "Barco Encallado"
+    },
+    {
+      "tipo": "interior",
+      "x": 546,
+      "y": 953,
+      "edificio": "ruinas_anfiteatro_vetrheim3-9__poi__ruinas_medianas_546_949",
+      "tipoEdificioId": "ruinas_anfiteatro",
       "esMazmorra": true,
-      "nombreDestino": "Torre Vigia Enemiga"
+      "nombreDestino": "Ruinas Medianas"
     },
     {
       "tipo": "interior",
-      "x": 2174,
-      "y": 1625,
-      "edificio": "cueva_goblins_vetrheim2-3__poi__cueva_pequena_2174_1625",
-      "tipoEdificioId": "cueva_goblins",
-      "esMazmorra": true,
-      "nombreDestino": "Cueva Pequena"
-    },
-    {
-      "tipo": "interior",
-      "x": 2204,
-      "y": 1698,
-      "edificio": "ruina_vetrheim2-3__poi__granja_abandonada_2204_1694",
-      "tipoEdificioId": "ruina",
-      "nombreDestino": "Granja Abandonada"
-    },
-    {
-      "tipo": "exterior",
-      "x": 3049,
-      "y": 1670,
-      "puertaX": 3051,
-      "puertaY": 1669,
-      "nombreDestino": "Contamina",
-      "destino": {
-        "tipo": "region",
-        "mapaId": "pois/castillo_real_3078_1648"
-      }
-    },
-    {
-      "tipo": "interior",
-      "x": 744,
-      "y": 1849,
-      "edificio": "ruina_vetrheim2-3__poi__granja_abandonada_744_1845",
-      "tipoEdificioId": "ruina",
-      "nombreDestino": "Granja Abandonada"
-    },
-    {
-      "tipo": "interior",
-      "x": 974,
-      "y": 1975,
-      "edificio": "torre_nigromante_vetrheim2-3__poi__torre_vigia_enemiga_974_1971",
-      "tipoEdificioId": "torre_nigromante",
-      "esMazmorra": true,
-      "nombreDestino": "Torre Vigia Enemiga"
-    },
-    {
-      "tipo": "interior",
-      "x": 1585,
-      "y": 1860,
-      "edificio": "ruina_vetrheim2-3__poi__ruinas_pequenas_1585_1856",
-      "tipoEdificioId": "ruina",
-      "nombreDestino": "Ruinas Pequenas"
-    },
-    {
-      "tipo": "interior",
-      "x": 1858,
-      "y": 1852,
-      "edificio": "cripta_ancestral_vetrheim2-3__poi__mazmorra_antigua_1858_1848",
-      "tipoEdificioId": "cripta_ancestral",
-      "esMazmorra": true,
-      "nombreDestino": "Mazmorra Antigua"
-    },
-    {
-      "tipo": "interior",
-      "x": 2121,
-      "y": 1804,
-      "edificio": "choza_pescador_vetrheim2-3__poi__cabana_pesca_2121_1800",
+      "x": 611,
+      "y": 845,
+      "edificio": "choza_pescador_vetrheim3-9__poi__cabana_pesca_611_841",
       "tipoEdificioId": "choza_pescador",
       "nombreDestino": "Cabana Pesca"
     },
     {
       "tipo": "interior",
-      "x": 2840,
-      "y": 1976,
-      "edificio": "fortaleza_orca_vetrheim2-3__poi__fuerte_barbaro_2840_1972",
-      "tipoEdificioId": "fortaleza_orca",
+      "x": 1567,
+      "y": 866,
+      "edificio": "cueva_murcielagos_vetrheim3-9__poi__cueva_colonia_murcielagos_1567_866",
+      "tipoEdificioId": "cueva_murcielagos",
       "esMazmorra": true,
-      "nombreDestino": "Fuerte Barbaro"
+      "nombreDestino": "Cueva Colonia Murcielagos"
     },
     {
       "tipo": "interior",
-      "x": 314,
-      "y": 2100,
-      "edificio": "ruina_vetrheim2-3__poi__ruinas_pequenas_314_2096",
+      "x": 1921,
+      "y": 861,
+      "edificio": "ruinas_anfiteatro_vetrheim3-9__poi__ruinas_medianas_1921_857",
+      "tipoEdificioId": "ruinas_anfiteatro",
+      "esMazmorra": true,
+      "nombreDestino": "Ruinas Medianas"
+    },
+    {
+      "tipo": "interior",
+      "x": 2688,
+      "y": 893,
+      "edificio": "torre_nigromante_vetrheim3-9__poi__torre_vigia_enemiga_2688_889",
+      "tipoEdificioId": "torre_nigromante",
+      "esMazmorra": true,
+      "nombreDestino": "Torre Vigia Enemiga"
+    },
+    {
+      "tipo": "interior",
+      "x": 2898,
+      "y": 975,
+      "edificio": "pantano_maldito_vetrheim3-9__poi__pantano_maldito_poi_2898_975",
+      "tipoEdificioId": "pantano_maldito",
+      "esMazmorra": true,
+      "nombreDestino": "Pantano Maldito Poi"
+    },
+    {
+      "tipo": "interior",
+      "x": 361,
+      "y": 1147,
+      "edificio": "ruina_vetrheim3-9__poi__ruinas_pequenas_361_1143",
       "tipoEdificioId": "ruina",
       "nombreDestino": "Ruinas Pequenas"
     },
     {
       "tipo": "interior",
-      "x": 427,
-      "y": 2127,
-      "edificio": "ruinas_necropolis_vetrheim2-3__poi__ruinas_necropolis_poi_427_2123",
-      "tipoEdificioId": "ruinas_necropolis",
+      "x": 2279,
+      "y": 1168,
+      "edificio": "cueva_murcielagos_vetrheim3-9__poi__cueva_colonia_murcielagos_2279_1168",
+      "tipoEdificioId": "cueva_murcielagos",
       "esMazmorra": true,
-      "nombreDestino": "Ruinas Necropolis Poi"
+      "nombreDestino": "Cueva Colonia Murcielagos"
     },
     {
       "tipo": "interior",
-      "x": 660,
-      "y": 2176,
-      "edificio": "cueva_aranas_vetrheim2-3__poi__cueva_nido_aranas_660_2176",
-      "tipoEdificioId": "cueva_aranas",
-      "esMazmorra": true,
-      "nombreDestino": "Cueva Nido Aranas"
+      "x": 3108,
+      "y": 1110,
+      "edificio": "ruina_vetrheim3-9__poi__granja_abandonada_3108_1106",
+      "tipoEdificioId": "ruina",
+      "nombreDestino": "Granja Abandonada"
+    },
+    {
+      "tipo": "interior",
+      "x": 739,
+      "y": 1241,
+      "edificio": "ruina_vetrheim3-9__poi__ruinas_pequenas_739_1237",
+      "tipoEdificioId": "ruina",
+      "nombreDestino": "Ruinas Pequenas"
     },
     {
       "tipo": "exterior",
-      "x": 1126,
-      "y": 2001,
-      "puertaX": 1124,
-      "puertaY": 2003,
-      "nombreDestino": "Cenicero",
+      "x": 909,
+      "y": 1350,
+      "puertaX": 911,
+      "puertaY": 1347,
+      "nombreDestino": "Malagón",
       "destino": {
         "tipo": "region",
-        "mapaId": "pois/aldea_maderera_1100_2037"
+        "mapaId": "pois/ciudad_poblada_menor_933_1308"
+      }
+    },
+    {
+      "tipo": "exterior",
+      "x": 947,
+      "y": 1260,
+      "puertaX": 946,
+      "puertaY": 1262,
+      "nombreDestino": "Malagón",
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/ciudad_poblada_menor_933_1308"
+      }
+    },
+    {
+      "tipo": "exterior",
+      "x": 1257,
+      "y": 1353,
+      "puertaX": 1259,
+      "puertaY": 1355,
+      "nombreDestino": "Guarida Bandidos",
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/guarida_bandidos_1285_1380"
       }
     },
     {
       "tipo": "interior",
-      "x": 2631,
-      "y": 2036,
-      "edificio": "cueva_goblins_vetrheim2-3__poi__cueva_pequena_2631_2036",
-      "tipoEdificioId": "cueva_goblins",
+      "x": 2373,
+      "y": 1262,
+      "edificio": "guarida_lobos_vetrheim3-9__poi__guarida_lobo_2373_1262",
+      "tipoEdificioId": "guarida_lobos",
       "esMazmorra": true,
-      "nombreDestino": "Cueva Pequena"
+      "nombreDestino": "Guarida Lobo"
     },
     {
       "tipo": "interior",
-      "x": 2946,
-      "y": 2084,
-      "edificio": "fortaleza_orca_vetrheim2-3__poi__fuerte_barbaro_2946_2080",
-      "tipoEdificioId": "fortaleza_orca",
-      "esMazmorra": true,
-      "nombreDestino": "Fuerte Barbaro"
-    },
-    {
-      "tipo": "interior",
-      "x": 1603,
-      "y": 2293,
-      "edificio": "mazmorra_real_vetrheim2-3__poi__barracones_abandonados_1603_2289",
-      "tipoEdificioId": "mazmorra_real",
-      "esMazmorra": true,
-      "nombreDestino": "Barracones Abandonados"
-    },
-    {
-      "tipo": "interior",
-      "x": 2546,
-      "y": 2545,
-      "edificio": "tienda_vetrheim2-3__poi__tienda_cazador_2546_2541",
-      "tipoEdificioId": "tienda",
-      "nombreDestino": "Tienda Cazador"
-    },
-    {
-      "tipo": "interior",
-      "x": 1177,
-      "y": 2789,
-      "edificio": "ruina_vetrheim2-3__poi__ruinas_pequenas_1177_2785",
-      "tipoEdificioId": "ruina",
-      "nombreDestino": "Ruinas Pequenas"
-    },
-    {
-      "tipo": "interior",
-      "x": 1454,
-      "y": 2787,
-      "edificio": "arboleda_corrupta_vetrheim2-3__poi__arboleda_corrupta_poi_1454_2787",
+      "x": 2499,
+      "y": 1303,
+      "edificio": "arboleda_corrupta_vetrheim3-9__poi__arboleda_corrupta_poi_2499_1303",
       "tipoEdificioId": "arboleda_corrupta",
       "esMazmorra": true,
       "nombreDestino": "Arboleda Corrupta Poi"
     },
     {
       "tipo": "interior",
-      "x": 1963,
-      "y": 2699,
-      "edificio": "ruina_vetrheim2-3__poi__ruinas_pequenas_1963_2695",
+      "x": 3038,
+      "y": 1320,
+      "edificio": "torre_nigromante_vetrheim3-9__poi__torre_vigia_enemiga_3038_1316",
+      "tipoEdificioId": "torre_nigromante",
+      "esMazmorra": true,
+      "nombreDestino": "Torre Vigia Enemiga"
+    },
+    {
+      "tipo": "interior",
+      "x": 560,
+      "y": 1592,
+      "edificio": "ruina_vetrheim3-9__poi__ruinas_pequenas_560_1588",
       "tipoEdificioId": "ruina",
       "nombreDestino": "Ruinas Pequenas"
     },
     {
       "tipo": "interior",
-      "x": 3099,
-      "y": 2699,
-      "edificio": "ruina_vetrheim2-3__poi__ruinas_pequenas_3099_2695",
+      "x": 2999,
+      "y": 1531,
+      "edificio": "ruina_vetrheim3-9__poi__ruinas_pequenas_2999_1527",
       "tipoEdificioId": "ruina",
       "nombreDestino": "Ruinas Pequenas"
     },
     {
       "tipo": "interior",
-      "x": 524,
-      "y": 2837,
-      "edificio": "cueva_goblins_vetrheim2-3__poi__cueva_pequena_524_2837",
+      "x": 516,
+      "y": 1711,
+      "edificio": "ruina_vetrheim3-9__poi__granja_abandonada_516_1707",
+      "tipoEdificioId": "ruina",
+      "nombreDestino": "Granja Abandonada"
+    },
+    {
+      "tipo": "interior",
+      "x": 899,
+      "y": 1674,
+      "edificio": "cueva_goblins_vetrheim3-9__poi__cueva_pequena_899_1674",
       "tipoEdificioId": "cueva_goblins",
       "esMazmorra": true,
       "nombreDestino": "Cueva Pequena"
     },
     {
       "tipo": "interior",
-      "x": 649,
-      "y": 2854,
-      "edificio": "cueva_aranas_vetrheim2-3__poi__cueva_nido_aranas_649_2854",
+      "x": 1370,
+      "y": 1715,
+      "edificio": "ruina_vetrheim3-9__poi__ruinas_pequenas_1370_1711",
+      "tipoEdificioId": "ruina",
+      "nombreDestino": "Ruinas Pequenas"
+    },
+    {
+      "tipo": "exterior",
+      "x": 1448,
+      "y": 1669,
+      "puertaX": 1445,
+      "puertaY": 1666,
+      "nombreDestino": "Meadero de la Reina",
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/capital_regional_1409_1614"
+      }
+    },
+    {
+      "tipo": "exterior",
+      "x": 1360,
+      "y": 1672,
+      "puertaX": 1362,
+      "puertaY": 1670,
+      "nombreDestino": "Meadero de la Reina",
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/capital_regional_1409_1614"
+      }
+    },
+    {
+      "tipo": "exterior",
+      "x": 1422,
+      "y": 1573,
+      "puertaX": 1421,
+      "puertaY": 1575,
+      "nombreDestino": "Meadero de la Reina",
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/capital_regional_1409_1614"
+      }
+    },
+    {
+      "tipo": "exterior",
+      "x": 2074,
+      "y": 1660,
+      "puertaX": 2071,
+      "puertaY": 1659,
+      "nombreDestino": "Nonduermas",
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/aldea_maderera_2048_1647"
+      }
+    },
+    {
+      "tipo": "interior",
+      "x": 2293,
+      "y": 1785,
+      "edificio": "mazmorra_real_vetrheim3-9__poi__barracones_abandonados_2293_1781",
+      "tipoEdificioId": "mazmorra_real",
+      "esMazmorra": true,
+      "nombreDestino": "Barracones Abandonados"
+    },
+    {
+      "tipo": "interior",
+      "x": 559,
+      "y": 1841,
+      "edificio": "tienda_vetrheim3-9__poi__tienda_cazador_559_1837",
+      "tipoEdificioId": "tienda",
+      "nombreDestino": "Tienda Cazador"
+    },
+    {
+      "tipo": "interior",
+      "x": 1397,
+      "y": 1818,
+      "edificio": "cueva_aranas_vetrheim3-9__poi__cueva_nido_aranas_1397_1818",
       "tipoEdificioId": "cueva_aranas",
       "esMazmorra": true,
       "nombreDestino": "Cueva Nido Aranas"
     },
     {
+      "tipo": "interior",
+      "x": 1925,
+      "y": 1834,
+      "edificio": "ruina_vetrheim3-9__poi__granja_abandonada_1925_1830",
+      "tipoEdificioId": "ruina",
+      "nombreDestino": "Granja Abandonada"
+    },
+    {
       "tipo": "exterior",
-      "x": 2153,
-      "y": 3083,
-      "puertaX": 2155,
-      "puertaY": 3080,
-      "nombreDestino": "Cariño",
+      "x": 2390,
+      "y": 1950,
+      "puertaX": 2392,
+      "puertaY": 1948,
+      "nombreDestino": "Guarida Bandidos",
       "destino": {
         "tipo": "region",
-        "mapaId": "pois/aldea_maderera_2174_3062"
+        "mapaId": "pois/guarida_bandidos_2419_1929"
       }
+    },
+    {
+      "tipo": "interior",
+      "x": 515,
+      "y": 2104,
+      "edificio": "ruinas_necropolis_vetrheim3-9__poi__ruinas_necropolis_poi_515_2100",
+      "tipoEdificioId": "ruinas_necropolis",
+      "esMazmorra": true,
+      "nombreDestino": "Ruinas Necropolis Poi"
+    },
+    {
+      "tipo": "exterior",
+      "x": 969,
+      "y": 2023,
+      "puertaX": 971,
+      "puertaY": 2025,
+      "nombreDestino": "Poblado Orco Poi",
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/poblado_orco_poi_988_2055"
+      }
+    },
+    {
+      "tipo": "interior",
+      "x": 1749,
+      "y": 2104,
+      "edificio": "cueva_goblins_vetrheim3-9__poi__cueva_pequena_1749_2104",
+      "tipoEdificioId": "cueva_goblins",
+      "esMazmorra": true,
+      "nombreDestino": "Cueva Pequena"
+    },
+    {
+      "tipo": "interior",
+      "x": 1060,
+      "y": 2267,
+      "edificio": "ruina_vetrheim3-9__poi__granja_abandonada_1060_2263",
+      "tipoEdificioId": "ruina",
+      "nombreDestino": "Granja Abandonada"
+    },
+    {
+      "tipo": "interior",
+      "x": 1346,
+      "y": 2249,
+      "edificio": "colmena_insectos_vetrheim3-9__poi__colmena_insectos_poi_1346_2249",
+      "tipoEdificioId": "colmena_insectos",
+      "esMazmorra": true,
+      "nombreDestino": "Colmena Insectos Poi"
+    },
+    {
+      "tipo": "interior",
+      "x": 2385,
+      "y": 2354,
+      "edificio": "cueva_murcielagos_vetrheim3-9__poi__cueva_colonia_murcielagos_2385_2354",
+      "tipoEdificioId": "cueva_murcielagos",
+      "esMazmorra": true,
+      "nombreDestino": "Cueva Colonia Murcielagos"
+    },
+    {
+      "tipo": "exterior",
+      "x": 489,
+      "y": 2454,
+      "puertaX": 489,
+      "puertaY": 2450,
+      "nombreDestino": "Venta de Pantalones",
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/aldea_agricola_480_2417"
+      }
+    },
+    {
+      "tipo": "exterior",
+      "x": 480,
+      "y": 2370,
+      "puertaX": 480,
+      "puertaY": 2372,
+      "nombreDestino": "Venta de Pantalones",
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/aldea_agricola_480_2417"
+      }
+    },
+    {
+      "tipo": "exterior",
+      "x": 1063,
+      "y": 2404,
+      "puertaX": 1060,
+      "puertaY": 2406,
+      "nombreDestino": "Campamento Barbaros Grande",
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/campamento_barbaros_grande_1036_2442"
+      }
+    },
+    {
+      "tipo": "interior",
+      "x": 1410,
+      "y": 2522,
+      "edificio": "cueva_trasgos_vetrheim3-9__poi__cueva_profunda_1410_2522",
+      "tipoEdificioId": "cueva_trasgos",
+      "esMazmorra": true,
+      "nombreDestino": "Cueva Profunda"
+    },
+    {
+      "tipo": "interior",
+      "x": 1622,
+      "y": 2500,
+      "edificio": "colmena_insectos_vetrheim3-9__poi__colmena_insectos_poi_1622_2500",
+      "tipoEdificioId": "colmena_insectos",
+      "esMazmorra": true,
+      "nombreDestino": "Colmena Insectos Poi"
+    },
+    {
+      "tipo": "interior",
+      "x": 2113,
+      "y": 2551,
+      "edificio": "choza_curandero_vetrheim3-9__poi__choza_curandero_2113_2547",
+      "tipoEdificioId": "choza_curandero",
+      "nombreDestino": "Choza Curandero"
+    },
+    {
+      "tipo": "interior",
+      "x": 2772,
+      "y": 2602,
+      "edificio": "tienda_vetrheim3-9__poi__tienda_cazador_2772_2598",
+      "tipoEdificioId": "tienda",
+      "nombreDestino": "Tienda Cazador"
+    },
+    {
+      "tipo": "interior",
+      "x": 2859,
+      "y": 2489,
+      "edificio": "ruina_vetrheim3-9__poi__ruinas_pequenas_2859_2485",
+      "tipoEdificioId": "ruina",
+      "nombreDestino": "Ruinas Pequenas"
+    },
+    {
+      "tipo": "exterior",
+      "x": 627,
+      "y": 2768,
+      "puertaX": 624,
+      "puertaY": 2768,
+      "nombreDestino": "Campamento Barbaros Grande",
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/campamento_barbaros_grande_584_2769"
+      }
+    },
+    {
+      "tipo": "interior",
+      "x": 1696,
+      "y": 2619,
+      "edificio": "cripta_ancestral_vetrheim3-9__poi__mazmorra_antigua_1696_2615",
+      "tipoEdificioId": "cripta_ancestral",
+      "esMazmorra": true,
+      "nombreDestino": "Mazmorra Antigua"
+    },
+    {
+      "tipo": "exterior",
+      "x": 2271,
+      "y": 2723,
+      "puertaX": 2268,
+      "puertaY": 2725,
+      "nombreDestino": "Campamento Barbaros Grande",
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/campamento_barbaros_grande_2246_2748"
+      }
+    },
+    {
+      "tipo": "interior",
+      "x": 2455,
+      "y": 2722,
+      "edificio": "ruina_vetrheim3-9__poi__granja_abandonada_2455_2718",
+      "tipoEdificioId": "ruina",
+      "nombreDestino": "Granja Abandonada"
+    },
+    {
+      "tipo": "interior",
+      "x": 2656,
+      "y": 2788,
+      "edificio": "torre_nigromante_vetrheim3-9__poi__torre_vigia_enemiga_2656_2784",
+      "tipoEdificioId": "torre_nigromante",
+      "esMazmorra": true,
+      "nombreDestino": "Torre Vigia Enemiga"
+    },
+    {
+      "tipo": "interior",
+      "x": 657,
+      "y": 2864,
+      "edificio": "mazmorra_real_vetrheim3-9__poi__barracones_abandonados_657_2860",
+      "tipoEdificioId": "mazmorra_real",
+      "esMazmorra": true,
+      "nombreDestino": "Barracones Abandonados"
+    },
+    {
+      "tipo": "interior",
+      "x": 884,
+      "y": 2819,
+      "edificio": "ruinas_torre_caida_vetrheim3-9__poi__mazmorra_olvidada_884_2815",
+      "tipoEdificioId": "ruinas_torre_caida",
+      "esMazmorra": true,
+      "nombreDestino": "Mazmorra Olvidada"
+    },
+    {
+      "tipo": "interior",
+      "x": 133,
+      "y": 3027,
+      "edificio": "ruinas_anfiteatro_vetrheim3-9__poi__ruinas_medianas_133_3023",
+      "tipoEdificioId": "ruinas_anfiteatro",
+      "esMazmorra": true,
+      "nombreDestino": "Ruinas Medianas"
+    },
+    {
+      "tipo": "interior",
+      "x": 646,
+      "y": 3028,
+      "edificio": "mazmorra_real_vetrheim3-9__poi__barracones_abandonados_646_3024",
+      "tipoEdificioId": "mazmorra_real",
+      "esMazmorra": true,
+      "nombreDestino": "Barracones Abandonados"
+    },
+    {
+      "tipo": "exterior",
+      "x": 2615,
+      "y": 3026,
+      "puertaX": 2618,
+      "puertaY": 3024,
+      "nombreDestino": "Guarida Bandidos",
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/guarida_bandidos_2633_3016"
+      }
+    },
+    {
+      "tipo": "interior",
+      "x": 3167,
+      "y": 3160,
+      "edificio": "ruinas_anfiteatro_vetrheim3-9__poi__ruinas_medianas_3167_3156",
+      "tipoEdificioId": "ruinas_anfiteatro",
+      "esMazmorra": true,
+      "nombreDestino": "Ruinas Medianas"
     }
   ],
   "senales": [
     {
-      "x": 1454,
-      "y": 1934,
-      "destino": "Cenicero"
+      "x": 1554,
+      "y": 1582,
+      "destino": "Meadero de la Reina"
     },
     {
-      "x": 1412,
-      "y": 1957,
-      "destino": "Cenicero"
+      "x": 1515,
+      "y": 1593,
+      "destino": "Meadero de la Reina"
     },
     {
-      "x": 1374,
-      "y": 1994,
-      "destino": "Cenicero"
+      "x": 1930,
+      "y": 1694,
+      "destino": "Nonduermas"
     },
     {
-      "x": 1345,
-      "y": 2019,
-      "destino": "Cenicero"
+      "x": 1985,
+      "y": 1700,
+      "destino": "Nonduermas"
     },
     {
-      "x": 1299,
-      "y": 2051,
-      "destino": "Cenicero"
+      "x": 2031,
+      "y": 1677,
+      "destino": "Nonduermas"
     },
     {
-      "x": 1263,
-      "y": 2067,
-      "destino": "Cenicero"
+      "x": 850,
+      "y": 1646,
+      "destino": "Malagón"
     },
     {
-      "x": 1217,
-      "y": 2046,
-      "destino": "Cenicero"
+      "x": 830,
+      "y": 1601,
+      "destino": "Malagón"
     },
     {
-      "x": 1176,
-      "y": 2083,
-      "destino": "Cenicero"
-    },
-    {
-      "x": 2494,
+      "x": 803,
       "y": 1558,
-      "destino": "Cabeza la Vaca"
+      "destino": "Malagón"
     },
     {
-      "x": 2521,
-      "y": 1515,
-      "destino": "Cabeza la Vaca"
+      "x": 799,
+      "y": 1501,
+      "destino": "Malagón"
     },
     {
-      "x": 2534,
-      "y": 1463,
-      "destino": "Cabeza la Vaca"
+      "x": 835,
+      "y": 1461,
+      "destino": "Malagón"
     },
     {
-      "x": 2576,
-      "y": 1427,
-      "destino": "Cabeza la Vaca"
+      "x": 832,
+      "y": 1405,
+      "destino": "Malagón"
     },
     {
-      "x": 2611,
-      "y": 1384,
-      "destino": "Cabeza la Vaca"
-    },
-    {
-      "x": 2621,
-      "y": 1336,
-      "destino": "Cabeza la Vaca"
-    },
-    {
-      "x": 2644,
-      "y": 1289,
-      "destino": "Cabeza la Vaca"
-    },
-    {
-      "x": 2659,
-      "y": 1240,
-      "destino": "Cabeza la Vaca"
-    },
-    {
-      "x": 2654,
-      "y": 1185,
-      "destino": "Cabeza la Vaca"
-    },
-    {
-      "x": 2659,
-      "y": 1130,
-      "destino": "Cabeza la Vaca"
-    },
-    {
-      "x": 2645,
-      "y": 1080,
-      "destino": "Cabeza la Vaca"
-    },
-    {
-      "x": 2609,
-      "y": 1038,
-      "destino": "Cabeza la Vaca"
-    },
-    {
-      "x": 1001,
-      "y": 507,
-      "destino": "Parderrubias"
-    },
-    {
-      "x": 1022,
-      "y": 461,
-      "destino": "Parderrubias"
-    },
-    {
-      "x": 2962,
-      "y": 2034,
-      "destino": "Contamina"
-    },
-    {
-      "x": 2997,
-      "y": 1991,
-      "destino": "Contamina"
-    },
-    {
-      "x": 3017,
-      "y": 1946,
-      "destino": "Contamina"
-    },
-    {
-      "x": 3053,
-      "y": 1904,
-      "destino": "Contamina"
-    },
-    {
-      "x": 3095,
-      "y": 1869,
-      "destino": "Contamina"
-    },
-    {
-      "x": 3102,
-      "y": 1816,
-      "destino": "Contamina"
-    },
-    {
-      "x": 3107,
-      "y": 1761,
-      "destino": "Contamina"
-    },
-    {
-      "x": 3070,
-      "y": 1720,
-      "destino": "Contamina"
-    },
-    {
-      "x": 1891,
-      "y": 2935,
-      "destino": "Cariño"
-    },
-    {
-      "x": 1896,
-      "y": 2988,
-      "destino": "Cariño"
-    },
-    {
-      "x": 1944,
-      "y": 3006,
-      "destino": "Cariño"
-    },
-    {
-      "x": 1987,
-      "y": 3041,
-      "destino": "Cariño"
-    },
-    {
-      "x": 2026,
-      "y": 3014,
-      "destino": "Cariño"
-    },
-    {
-      "x": 2061,
-      "y": 3057,
-      "destino": "Cariño"
-    },
-    {
-      "x": 2111,
-      "y": 3070,
-      "destino": "Cariño"
+      "x": 874,
+      "y": 1369,
+      "destino": "Malagón"
     }
   ]
 }

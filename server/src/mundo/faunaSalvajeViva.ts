@@ -24,6 +24,7 @@ import { aplicarDanio, curar, estaMuerto } from "../combate/combate";
 import { FaunaHuevoFila, FaunaSalvajeFila } from "../datos/bd";
 import { CatalogoItems } from "../inventario/inventario";
 import { rellenarLootCaza } from "./lootCaza";
+import { ColaPorClave } from "../concurrencia/colaPorClave";
 
 const RADIO_MERODEO = 3; // casillas — paseo corto alrededor de donde se resolvió cada individuo
 const VEL = 1.0;
@@ -171,6 +172,24 @@ export class GestorFaunaSalvaje {
   private cazasActivas = new Map<string, string>();
   /** faunaId del depredador -> faunaId de la presa que está persiguiendo por su cuenta (ver RADIO_DETECCION_DEPREDADOR). */
   private caceriasAnimales = new Map<string, string>();
+  // Bug real encontrado 2026-09-14 investigando un perfil de carga sintético
+  // (docs/GDD_Rendimiento.md §10, sección de fauna): `tick()` puede devolver
+  // el MISMO `presaId` dos veces en `cacerias` — `presaMasCercana` no
+  // comprueba si otro depredador YA la está persiguiendo, así que dos
+  // depredadores cercanos pueden capturarla en el MISMO tick — y
+  // `HubRoom.ts` dispara `onFaunaMuerta(presaId)` para cada entrada con
+  // `void ...` SIN esperar entre iteraciones (mismo patrón para `atrapados`
+  // de la caza del jugador). Sin serializar por faunaId, dos llamadas
+  // concurrentes a `matarIndividuo(mismoId)` leen `vivos` ANTES de que
+  // ninguna llegue a su primer `await` (ambas encuentran el mismo índice
+  // todavía sin hacer `splice`), y las DOS intentan crear el mismo
+  // `cadaver:<id>` → `UNIQUE constraint failed` real, reproducido con un
+  // repro dedicado (varios depredadores + presas muy juntas). Mismo
+  // criterio que `colaPorArbol` en `bosquesVivos.ts` — serializar por clave
+  // hace que la segunda llamada, tras esperar a la primera, encuentre el
+  // individuo ya eliminado de `vivos` y devuelva `null` sin más, en vez de
+  // reventar.
+  private colaPorFauna = new ColaPorClave();
 
   constructor(
     private salida: MapSchema<Fauna>,
@@ -341,38 +360,47 @@ export class GestorFaunaSalvaje {
    * cuanto se implementó el combate).
    */
   async matarIndividuo(id: string): Promise<Cadaver | null> {
-    for (const vivos of this.sectoresActivos.values()) {
-      const idx = vivos.findIndex((v) => v.fila.id === id);
-      if (idx === -1) continue;
-      const v = vivos[idx];
-      v.fila.x = v.esquema.x;
-      v.fila.y = v.esquema.y;
-      v.fila.estado = "muerto";
-      await this.deps.guardarIndividuo(v.fila);
-      this.salida.delete(v.fila.id);
-      this.cazasActivas.delete(v.fila.id);
-      this.caceriasAnimales.delete(v.fila.id);
-      vivos.splice(idx, 1);
+    // Serializado por faunaId (ver el comentario de `colaPorFauna` arriba):
+    // dos llamadas casi simultáneas para el MISMO individuo (dos
+    // depredadores/cazadores reclamando la misma presa en el mismo tick)
+    // ya no pueden leer `vivos` a la vez antes de que ninguna haga el
+    // `splice` — la segunda, tras esperar a la primera, ya no lo encuentra
+    // y devuelve `null` sin más, en vez de intentar crear el mismo cadáver
+    // dos veces.
+    return this.colaPorFauna.ejecutar(id, async () => {
+      for (const vivos of this.sectoresActivos.values()) {
+        const idx = vivos.findIndex((v) => v.fila.id === id);
+        if (idx === -1) continue;
+        const v = vivos[idx];
+        v.fila.x = v.esquema.x;
+        v.fila.y = v.esquema.y;
+        v.fila.estado = "muerto";
+        await this.deps.guardarIndividuo(v.fila);
+        this.salida.delete(v.fila.id);
+        this.cazasActivas.delete(v.fila.id);
+        this.caceriasAnimales.delete(v.fila.id);
+        vivos.splice(idx, 1);
 
-      const cadaver = crearCadaver({
-        id: `cadaver:${v.fila.id}`,
-        mapaId: this.deps.mapaId,
-        tipoOrigen: "animal",
-        especieOrigenId: v.fila.especieId,
-        x: v.fila.x,
-        y: v.fila.y,
-        ahora: this.deps.ahora(),
-      });
-      // Loot de caza (docs/GDD_Caza.md): carne/tendones/tripas SIEMPRE, la
-      // piel queda aparte para quien lo desuelle (cadaver:desollar).
-      if (this.deps.catalogoItems) {
-        const especie = this.deps.catalogoCombate?.[v.fila.especieId] ?? estadisticasCombatePorDefecto();
-        rellenarLootCaza(cadaver.contenedor, this.deps.catalogoItems, especie);
+        const cadaver = crearCadaver({
+          id: `cadaver:${v.fila.id}`,
+          mapaId: this.deps.mapaId,
+          tipoOrigen: "animal",
+          especieOrigenId: v.fila.especieId,
+          x: v.fila.x,
+          y: v.fila.y,
+          ahora: this.deps.ahora(),
+        });
+        // Loot de caza (docs/GDD_Caza.md): carne/tendones/tripas SIEMPRE, la
+        // piel queda aparte para quien lo desuelle (cadaver:desollar).
+        if (this.deps.catalogoItems) {
+          const especie = this.deps.catalogoCombate?.[v.fila.especieId] ?? estadisticasCombatePorDefecto();
+          rellenarLootCaza(cadaver.contenedor, this.deps.catalogoItems, especie);
+        }
+        await this.deps.crearCadaver(cadaver);
+        return cadaver;
       }
-      await this.deps.crearCadaver(cadaver);
-      return cadaver;
-    }
-    return null;
+      return null;
+    });
   }
 
   /**
