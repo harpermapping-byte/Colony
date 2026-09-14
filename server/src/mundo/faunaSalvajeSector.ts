@@ -369,12 +369,29 @@ export function resolverSector(params: {
     a.ultimaComida = ahora;
     a.ultimaBebida = ahora;
   }
+  // Índice por especie (O(n), una vez) — bug real de rendimiento cerrado
+  // 2026-09-14: antes cada macho elegible filtraba TODO `vivosAhora` (todas
+  // las especies mezcladas) para buscar pareja, aunque `buscarPareja` ya
+  // descarta cualquier candidata de otra especie por dentro — en un sector
+  // real con decenas de especies y cientos de individuos (streaming ring
+  // cerca del spawn, ver docs/GDD_Agentes_Moviles.md), esto era O(n) por
+  // cada macho adulto en vez de O(k) sobre su propia especie, un coste que
+  // escala con el sector ENTERO en vez de con el tamaño real del grupo
+  // reproductor. Resultado idéntico: `buscarPareja` ya exige
+  // `c.especieId === animal.especieId` internamente, esto solo evita
+  // ofrecerle candidatas que nunca iba a aceptar.
+  const vivosPorEspecie = new Map<string, AnimalReproductor[]>();
+  for (const a of vivosAhora) {
+    let lista = vivosPorEspecie.get(a.especieId);
+    if (!lista) vivosPorEspecie.set(a.especieId, (lista = []));
+    lista.push(a);
+  }
   const yaIntentado = new Set<string>();
   for (const a of vivosAhora) {
     if (a.sexo !== "macho" || a.etapa !== "adulto" || yaIntentado.has(a.id)) continue;
     const especie = catalogo[a.especieId];
     if (!especie || especie.poblacionInfinita) continue; // población infinita no gesta/aparea — solo se rellena en el paso 3bis
-    const candidatas = vivosAhora.filter((c) => c.id !== a.id && !yaIntentado.has(c.id));
+    const candidatas = (vivosPorEspecie.get(a.especieId) ?? []).filter((c) => c.id !== a.id && !yaIntentado.has(c.id));
     const pareja = buscarPareja(a, especie, candidatas, RADIO_APAREAMIENTO, ahora);
     if (!pareja) continue;
     yaIntentado.add(a.id);

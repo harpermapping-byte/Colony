@@ -163,6 +163,20 @@ Cuatro pasos, cada uno con su propia red de seguridad:
 
 **Sin probar en el PC real del streamer** — mismo criterio honesto que el resto de este documento: el mecanismo está verificado de punta a punta contra un Postgres real en este sandbox, pero la ejecución real contra la base de datos de producción (con la contraseña real del rol `colony`) la tiene que lanzar él.
 
+## Reinicio quirúrgico de la fauna salvaje viva (`reiniciarFaunaViva.ps1`, 2026-09-14)
+
+Bug real descubierto investigando "rehorneé el mapa con menos animales y en el spawn sigue saliendo lo mismo" (detalle técnico completo en `docs/GDD_Agentes_Moviles.md`, sección del mismo nombre): `faunaSalvajeViva.ts::activarSector` SOLO lee el archivo de bake la PRIMERÍSIMA vez que un sector se activa para un mapa — si ese sector ya tiene filas en BD (de cualquier bake anterior, aunque tuviera mucha más densidad), las reactivaciones siguientes IGNORAN el bake nuevo por completo. Rehornear con menos fauna no tiene ningún efecto visible en una zona ya visitada, y el spawn es la zona más visitada de todo el proyecto.
+
+```
+powershell -ExecutionPolicy Bypass -File server/deploy/reiniciarFaunaViva.ps1 -Confirmar
+```
+
+Mismas garantías que `reiniciarBd.ps1` (copia de seguridad forzada antes de tocar nada, confirmación escrita `BORRAR` salvo `-SinPreguntar`, para/arranca el servidor) pero MUCHO más quirúrgico: solo borra `fauna_salvaje`/`fauna_huevo`/`fauna_sector_resuelto` del mapa indicado (`-MapaId`, por defecto `"principal"`) — cuentas, personajes, inventario, Farycoins, gremios y construcciones quedan intactos. Tras ejecutarlo, la próxima vez que alguien se acerque a un sector, su fauna se deriva 1:1 desde el bake ACTUAL.
+
+De regalo, cierra también una pregunta real del streamer sobre si los datos de `pm2 describe colony-server` (Event Loop Latency 351ms media / 591ms p95 con un solo jugador conectado) servían para algo: SÍ — apuntaron a un bug de rendimiento real en el apareamiento de fauna (`faunaSalvajeSector.ts`, O(n) por macho elegible sobre TODO el sector mezclado en vez de O(k) sobre su propia especie), ya cerrado en el mismo commit. Limpiar la fauna estancada con este script también reduce ese coste (menos individuos persistidos que reactivar).
+
+**Sin probar en el PC real del streamer** — mismo criterio honesto que el resto de este documento.
+
 ## Reinicio programado cada 8 horas (`reinicioProgramado.ps1`, 2026-09-09)
 
 Pedido del streamer ("reinicios cada 8 horas automáticos, aparte de si hay commit nuevo"). **No reinicia a hora fija, sino en el primer momento libre pasadas las N horas encendido** (8 por defecto, `-HorasMinimas`).

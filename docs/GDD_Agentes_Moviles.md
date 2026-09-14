@@ -973,6 +973,80 @@ brazos) reusado para las 16 acciones — no hay un gesto distinto por oficio,
 mismo criterio de "pose fija simple" ya documentado en el resto del
 proyecto, no una limitación nueva de esta pasada.
 
+## Bug real de raíz: rehornear con menos densidad NUNCA baja la fauna VIVA de un sector ya visitado (2026-09-14, pedido streamer: "hice todo y en el spawn siguen saliendo MUCHISIMOS ANIMALEs")
+
+Tras dos rebakes reales de esta misma sesión que sí reducían la densidad
+en el archivo bakeado (-56% y -50% consecutivos, ver `docs/GDD_Rendimiento.md`
+§9 y el bullet del rebake de fauna en `CLAUDE.md`), el streamer confirmó
+que junto al spawn seguía viendo "muchísimos animales" — investigado a
+fondo en vez de asumir que hacía falta bajar el techo una vez más.
+
+**Causa raíz, confirmada leyendo el propio código**: `faunaSalvajeViva.ts::activarSector`
+SOLO lee el archivo de bake (`cargarBakeSector`) la PRIMERÍSIMA vez que un
+sector se activa para un `mapaId` — comprobado con `esPrimeraVez =
+persistido.ultimaResolucion === null && persistido.filas.length === 0`.
+Si ese sector YA tiene una fila en `fauna_sector_resuelto` o en
+`fauna_salvaje` (de CUALQUIER bake anterior, aunque tuviera 3x más
+densidad — el spawn es, con diferencia, la zona más visitada de todas las
+sesiones de prueba de este proyecto), todas las reactivaciones siguientes
+IGNORAN el bake nuevo por completo: las especies de "población infinita"
+solo se rellenan hasta el límite YA persistido (calculado la primera vez,
+nunca recalculado), y el resto sigue su reproducción normal desde los
+individuos ya guardados. **Rehornear el mapa con menos fauna no tiene
+NINGÚN efecto visible en una zona ya visitada antes del rebake** — el
+propio "Aviso explícito" de `CLAUDE.md` sobre no resetear la BD para
+probar mapa/spawn nuevos (2026-09-08) era correcto para la ESTRUCTURA del
+mapa (terreno/spawn no dependen de BD) pero no cubría este caso: la
+POBLACIÓN de fauna sí queda congelada en BD desde la primera visita.
+
+**Medido en el bake YA promocionado (fauna=0.002)**: en el anillo 3x3 de
+sectores que el servidor activa alrededor del spawn (`radioSectores=1`,
+`actualizarPorJugadores`), hay 1103 individuos activos — pero solo **1**
+cae dentro de las 70 casillas del radio de `StateView` del jugador, y solo
+ese mismo 1 dentro del radio de culling visual (26-34 casillas, ver GDD_Rendimiento
+§9). El bake actual, si se leyera de verdad, ya no debería producir la
+sensación de "muchísimos animales" cerca del jugador — el problema es que
+NUNCA se está leyendo, porque el sector del spawn quedó resuelto hace
+sesiones con una densidad mucho mayor.
+
+**Arreglo, dos piezas**:
+1. `server/deploy/reiniciarFaunaViva.ps1` (NUEVO) — borra SOLO
+   `fauna_salvaje`/`fauna_huevo`/`fauna_sector_resuelto` de un `mapaId`
+   (por defecto `"principal"`), preservando cuentas/inventario/economía/
+   gremios/construcciones — mucho más quirúrgico que el `reiniciarBd.ps1`
+   de reseteo completo ya existente. Con esto, la próxima activación de
+   cada sector vuelve a derivar 1:1 desde el bake ACTUAL (el ya reducido).
+2. **Optimización real de rendimiento, encontrada auditando el mismo
+   código** (responde también a la pregunta del streamer sobre si los
+   datos de `pm2 describe` — Event Loop Latency 351ms media/591ms p95 con
+   solo 1 jugador conectado — servían para algo): el paso 4 de
+   `resolverSector` (apareamiento, `faunaSalvajeSector.ts`) filtraba
+   `vivosAhora` COMPLETO (todas las especies mezcladas del sector) por
+   cada macho adulto elegible, aunque `buscarPareja` ya descarta cualquier
+   candidata de otra especie por dentro — O(n) por macho en vez de O(k)
+   sobre su propio grupo reproductor, con `n` = TODO el sector (cientos de
+   individuos de docenas de especies distintas cerca del spawn). Cerrado
+   con un índice `vivosPorEspecie` (Map, construido una vez, O(n)) — mismo
+   patrón ya usado en `faunaSalvajeViva.ts::tick()`'s `porEspecie`.
+   Resultado idéntico (`buscarPareja` sigue exigiendo `especieId` igual
+   internamente), solo evita ofrecer candidatas que nunca iba a aceptar.
+   Este coste se paga en CADA reactivación de un sector ya resuelto (no
+   solo la primera vez), así que sectores muy visitados con mucha fauna
+   acumulada (como el propio spawn) lo pagaban una y otra vez.
+
+**Sinergia real**: limpiar la fauna estancada con el script nuevo también
+reduce el coste de esta optimización de raíz (menos individuos
+persistidos que reactivar = menos trabajo de apareamiento), así que ambas
+piezas atacan el mismo síntoma desde ángulos distintos — densidad
+percibida Y latencia del servidor.
+
+Verificado: `cd server && npx tsc --noEmit` limpio, `npm test` 1363/1363
+sin regresión (comportamiento idéntico, solo se reduce el conjunto que se
+recorre). **Sin verificar en vivo con el streamer** — pendiente de que
+ejecute `reiniciarFaunaViva.ps1 -Confirmar` en su propio hosting y
+confirme si baja de verdad la cantidad de animales visibles cerca del
+spawn.
+
 ## Verificado (v1)
 
 - Test de servidor del gestor: recolocación por hora al crear room,
