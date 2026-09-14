@@ -1,4 +1,4 @@
-# Borra el ESTADO VIVO PERSISTIDO de la fauna salvaje de un mapa concreto
+﻿# Borra el ESTADO VIVO PERSISTIDO de la fauna salvaje de un mapa concreto
 # (fauna_salvaje/fauna_huevo/fauna_sector_resuelto) para que el servidor
 # vuelva a derivarlo 1:1 del bake ACTUAL la próxima vez que alguien se
 # acerque — SIN tocar cuentas, personajes, inventario, economía ni gremios.
